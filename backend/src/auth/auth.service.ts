@@ -25,14 +25,14 @@ export interface TokenPair {
 // ── Token Helpers ──────────────────────────────────────────────────
 export function signAccessToken(payload: Omit<JwtPayload, 'iat' | 'exp'>): string {
   return jwt.sign(payload, process.env.JWT_ACCESS_SECRET!, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m',
+    expiresIn: (process.env.JWT_ACCESS_EXPIRY || '15m') as any,
     algorithm: 'HS256',
   });
 }
 
 export function signRefreshToken(payload: Omit<JwtPayload, 'iat' | 'exp'>): string {
   return jwt.sign(payload, process.env.JWT_REFRESH_SECRET!, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d',
+    expiresIn: (process.env.JWT_REFRESH_EXPIRY || '7d') as any,
     algorithm: 'HS256',
   });
 }
