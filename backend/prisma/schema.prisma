@@ -1,0 +1,379 @@
+// VeraMed — Prisma Schema
+// Run: npx prisma generate && npx prisma migrate dev
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  patient
+  doctor
+  pharmacy
+  driver
+  admin
+}
+
+enum VerificationStatus {
+  pending
+  verified
+  rejected
+  suspended
+}
+
+enum PrescriptionStatus {
+  ai_generated
+  pending_review
+  approved
+  modified
+  rejected
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  preparing
+  ready_for_pickup
+  in_transit
+  delivered
+  cancelled
+}
+
+enum DeliveryStatus {
+  unassigned
+  assigned
+  picked_up
+  in_transit
+  delivered
+  failed
+}
+
+enum PaymentStatus {
+  pending
+  processing
+  succeeded
+  failed
+  refunded
+}
+
+model User {
+  id            String             @id @default(uuid())
+  name          String
+  email         String             @unique
+  passwordHash  String             @map("password_hash")
+  role          UserRole
+  phone         String?
+  avatarUrl     String?            @map("avatar_url")
+  status        VerificationStatus @default(pending)
+  emailVerified Boolean            @default(false) @map("email_verified")
+  mfaEnabled    Boolean            @default(false) @map("mfa_enabled")
+  mfaSecret     String?            @map("mfa_secret")
+  lastLoginAt   DateTime?          @map("last_login_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  patient        Patient?
+  doctor         Doctor?
+  pharmacy       Pharmacy?
+  driver         Driver?
+  refreshTokens  RefreshToken[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  deviceInfo Json?     @map("device_info")
+  ipAddress  String?   @map("ip_address")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Patient {
+  id               String    @id @default(uuid())
+  userId           String    @unique @map("user_id")
+  dateOfBirth      DateTime? @map("date_of_birth")
+  gender           String?
+  bloodType        String?   @map("blood_type")
+  allergies        String[]
+  medicalHistory   String?   @map("medical_history")
+  emergencyContact Json?     @map("emergency_contact")
+  address          Json?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports       Report[]
+  prescriptions Prescription[]
+  orders        Order[]
+
+  @@map("patients")
+}
+
+model Doctor {
+  id               String    @id @default(uuid())
+  userId           String    @unique @map("user_id")
+  licenseNumber    String    @unique @map("license_number")
+  specialization   String
+  qualification    String?
+  hospital         String?
+  bio              String?
+  consultationFee  Decimal   @default(0) @map("consultation_fee") @db.Decimal(10, 2)
+  available        Boolean   @default(true)
+  reviewCount      Int       @default(0) @map("review_count")
+  avgRating        Decimal?  @map("avg_rating") @db.Decimal(3, 2)
+  verifiedAt       DateTime? @map("verified_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prescriptions Prescription[]
+
+  @@map("doctors")
+}
+
+model Pharmacy {
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  storeName      String   @map("store_name")
+  licenseNumber  String   @unique @map("license_number")
+  address        Json
+  phone          String?
+  openingHours   Json?    @map("opening_hours")
+  acceptsOrders  Boolean  @default(true) @map("accepts_orders")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medications Medication[]
+  orders      Order[]
+
+  @@map("pharmacies")
+}
+
+model Driver {
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  licensePlate    String?  @map("license_plate")
+  vehicleInfo     Json?    @map("vehicle_info")
+  isOnline        Boolean  @default(false) @map("is_online")
+  isVerified      Boolean  @default(false) @map("is_verified")
+  deliveryCount   Int      @default(0) @map("delivery_count")
+  avgRating       Decimal? @map("avg_rating") @db.Decimal(3, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries Delivery[]
+
+  @@map("drivers")
+}
+
+model Report {
+  id            String   @id @default(uuid())
+  patientId     String   @map("patient_id")
+  fileUrl       String   @map("file_url")
+  fileName      String   @map("file_name")
+  fileType      String?  @map("file_type")
+  fileSizeBytes Int?     @map("file_size_bytes")
+  description   String
+  symptoms      String[]
+  processed     Boolean  @default(false)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  aiAnalysis AiAnalysis?
+
+  @@map("reports")
+}
+
+model AiAnalysis {
+  id                  String   @id @default(uuid())
+  reportId            String   @unique @map("report_id")
+  modelVersion        String   @map("model_version")
+  aiSummary           String   @map("ai_summary")
+  suggestedDiagnosis  String?  @map("suggested_diagnosis")
+  suggestedMedication Json     @map("suggested_medication")
+  confidenceScore     Decimal? @map("confidence_score") @db.Decimal(4, 3)
+  warnings            String[]
+  rawResponse         Json?    @map("raw_response")
+  processingTimeMs    Int?     @map("processing_time_ms")
+  reviewedByDoctor    Boolean  @default(false) @map("reviewed_by_doctor")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  report       Report        @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  prescription Prescription?
+
+  @@map("ai_analyses")
+}
+
+model Prescription {
+  id              String             @id @default(uuid())
+  patientId       String             @map("patient_id")
+  doctorId        String             @map("doctor_id")
+  aiAnalysisId    String?            @unique @map("ai_analysis_id")
+  status          PrescriptionStatus @default(pending_review)
+  medications     Json
+  doctorNotes     String?            @map("doctor_notes")
+  rejectionReason String?            @map("rejection_reason")
+  validUntil      DateTime?          @map("valid_until")
+  approvedAt      DateTime?          @map("approved_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctor      Doctor      @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  aiAnalysis  AiAnalysis? @relation(fields: [aiAnalysisId], references: [id])
+  orders      Order[]
+
+  @@map("prescriptions")
+}
+
+model Medication {
+  id                   String   @id @default(uuid())
+  pharmacyId           String   @map("pharmacy_id")
+  name                 String
+  genericName          String?  @map("generic_name")
+  brand                String?
+  category             String?
+  dosageForm           String?  @map("dosage_form")
+  strength             String?
+  price                Decimal  @db.Decimal(10, 2)
+  stock                Int      @default(0)
+  requiresPrescription Boolean  @default(true) @map("requires_prescription")
+  barcode              String?
+  expiryDate           DateTime? @map("expiry_date")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  pharmacy   Pharmacy    @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  orderItems OrderItem[]
+
+  @@map("medications")
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  patientId       String      @map("patient_id")
+  pharmacyId      String      @map("pharmacy_id")
+  prescriptionId  String      @map("prescription_id")
+  status          OrderStatus @default(pending)
+  subtotal        Decimal     @db.Decimal(10, 2)
+  deliveryFee     Decimal     @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  totalPrice      Decimal     @map("total_price") @db.Decimal(10, 2)
+  deliveryAddress Json        @map("delivery_address")
+  specialNotes    String?     @map("special_notes")
+  confirmedAt     DateTime?   @map("confirmed_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  pharmacy     Pharmacy     @relation(fields: [pharmacyId], references: [id], onDelete: Restrict)
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Restrict)
+  items        OrderItem[]
+  delivery     Delivery?
+  payment      Payment?
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id           String   @id @default(uuid())
+  orderId      String   @map("order_id")
+  medicationId String   @map("medication_id")
+  quantity     Int
+  unitPrice    Decimal  @map("unit_price") @db.Decimal(10, 2)
+
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  medication Medication @relation(fields: [medicationId], references: [id], onDelete: Restrict)
+
+  @@map("order_items")
+}
+
+model Delivery {
+  id              String         @id @default(uuid())
+  orderId         String         @unique @map("order_id")
+  driverId        String?        @map("driver_id")
+  status          DeliveryStatus @default(unassigned)
+  pickupAddress   Json           @map("pickup_address")
+  deliveryAddress Json           @map("delivery_address")
+  estimatedMinutes Int?          @map("estimated_minutes")
+  trackingToken   String         @default(uuid()) @map("tracking_token")
+  assignedAt      DateTime?      @map("assigned_at")
+  pickedUpAt      DateTime?      @map("picked_up_at")
+  deliveredAt     DateTime?      @map("delivered_at")
+  driverNotes     String?        @map("driver_notes")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  order  Order   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  driver Driver? @relation(fields: [driverId], references: [id])
+
+  @@map("deliveries")
+}
+
+model Payment {
+  id                  String        @id @default(uuid())
+  orderId             String        @unique @map("order_id")
+  stripePaymentIntent String        @unique @map("stripe_payment_intent")
+  stripeCustomerId    String?       @map("stripe_customer_id")
+  amountPence         Int           @map("amount_pence")
+  currency            String        @default("GBP")
+  status              PaymentStatus @default(pending)
+  paymentMethod       Json?         @map("payment_method")
+  receiptUrl          String?       @map("receipt_url")
+  refundId            String?       @map("refund_id")
+  failedReason        String?       @map("failed_reason")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@map("payments")
+}
+
+model AuditLog {
+  id           BigInt   @id @default(autoincrement())
+  userId       String?  @map("user_id")
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  oldValue     Json?    @map("old_value")
+  newValue     Json?    @map("new_value")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  type      String
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
