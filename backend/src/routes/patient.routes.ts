@@ -48,7 +48,7 @@ patientRouter.post('/upload-report',
     const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });
     if (!patient) throw new AppError('Patient profile not found', 404);
 
-    const s3File = req.file as Express.MulterS3.File;
+    const s3File = req.file as any;
 
     const report = await prisma.report.create({
       data: {
