@@ -55,7 +55,7 @@ export default function DoctorDashboard() {
     } finally { setActionLoading(false); }
   };
 
-  const firstName = user?.name?.split(' ')[0] || 'Doctor';
+  const firstName = user?.name?.split(' ').filter((w: string) => !w.startsWith('dr') && !w.startsWith('Dr')).join(' ') || user?.name || 'Doctor';
 
   return (
     <div style={{ minHeight: '100vh', background: '#F0F4F8', fontFamily: 'sans-serif' }}>
