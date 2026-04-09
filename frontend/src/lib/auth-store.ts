@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ isLoading: true });
         try {
-          const res = await fetch('http://localhost:4000/api/auth/login', {
+          const res = await fetch('https://veramed.onrender.com/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
@@ -40,7 +40,7 @@ export const useAuthStore = create<AuthState>()(
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Login failed');
           set({ accessToken: data.accessToken, refreshToken: data.refreshToken });
-          const meRes = await fetch('http://localhost:4000/api/auth/me', {
+          const meRes = await fetch('https://veramed.onrender.com/api/auth/me', {
             headers: { Authorization: 'Bearer ' + data.accessToken },
           });
           const me = await meRes.json();
@@ -53,7 +53,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         const { refreshToken } = get();
         try {
-          await fetch('http://localhost:4000/api/auth/logout', {
+          await fetch('https://veramed.onrender.com/api/auth/logout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + get().accessToken },
             body: JSON.stringify({ refreshToken }),
