@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from './auth-store';
 
 export const api = axios.create({
   baseURL: 'https://veramed.onrender.com/api',
@@ -7,13 +8,7 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('veramed-auth');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      const token = parsed?.state?.accessToken;
-      if (token) config.headers.Authorization = 'Bearer ' + token;
-    }
-  }
+  const token = useAuthStore.getState().accessToken;
+  if (token) config.headers.Authorization = 'Bearer ' + token;
   return config;
 });
