@@ -86,6 +86,8 @@ app.use('/api/pharmacy',  pharmacyRouter);
 app.use('/api/orders',    orderRouter);
 app.use('/api/delivery',  deliveryRouter);
 app.use('/api/payment',   paymentRouter);
+app.use('/api', (await import('./routes/profile.routes')).then(m => m.profileRouter));
+app.use('/api/pricing', (await import('./routes/pricing.routes')).then(m => m.pricingRouter));
 app.use('/api/admin',     adminRouter);
 
 
