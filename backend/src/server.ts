@@ -19,7 +19,7 @@ import { errorHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
 import { logger } from './utils/logger';
 
-// ── Globals ────────────────────────────────────────────────────────
+// â”€â”€ Globals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development'
     ? ['query', 'error', 'warn']
@@ -28,7 +28,7 @@ export const prisma = new PrismaClient({
 
 export const redis = createClient({ url: process.env.REDIS_URL });
 
-// ── App ────────────────────────────────────────────────────────────
+// â”€â”€ App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
 
@@ -45,7 +45,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: true,
 }));
 
-// CORS — only allow known frontend origin
+// CORS â€” only allow known frontend origin
 app.use(cors({
   origin: process.env.FRONTEND_URL,
   credentials: true,
@@ -74,7 +74,7 @@ const authLimiter = rateLimit({
   message: { error: 'Too many auth attempts, please try again in 15 minutes.' },
 });
 
-// ── Routes ─────────────────────────────────────────────────────────
+// â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/health', (_req, res) => res.json({
   status: 'ok', version: '1.0.0', timestamp: new Date().toISOString(),
 }));
@@ -87,15 +87,43 @@ app.use('/api/orders',    orderRouter);
 app.use('/api/delivery',  deliveryRouter);
 app.use('/api/payment',   paymentRouter);
 app.use('/api/admin',     adminRouter);
-app.use('/api/seed',      require('./routes/seed.routes').default);
 
+
+
+// Temporary seed endpoint
+app.post('/api/seed-admin', async (req: any, res: any) => {
+  if (req.body.secret !== 'veramed-seed-2026') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const bcrypt = await import('bcryptjs');
+    const accounts = [
+      { name: 'VeraMed Admin', email: 'admin@veramed.health', password: 'Admin@123!', role: 'admin' },
+      { name: 'Dr. Priya Patel', email: 'dr.patel@veramed.health', password: 'Doctor@123!', role: 'doctor' },
+      { name: 'Boots Manchester', email: 'boots@veramed.health', password: 'Pharmacy@123!', role: 'pharmacy' },
+      { name: 'Sarah Rahman', email: 'patient@veramed.health', password: 'Patient@123!', role: 'patient' },
+      { name: 'James Wilson', email: 'driver@veramed.health', password: 'Driver@123!', role: 'driver' },
+    ];
+    for (const acc of accounts) {
+      const hash = await bcrypt.hash(acc.password, 12);
+      const user = await prisma.user.upsert({
+        where: { email: acc.email },
+        update: {},
+        create: { name: acc.name, email: acc.email, passwordHash: hash, role: acc.role as any, status: 'verified' }
+      });
+      if (acc.role === 'doctor') await prisma.doctor.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id, licenseNumber: 'GMC-123456', specialization: 'General Practice', available: true, verifiedAt: new Date() } });
+      if (acc.role === 'pharmacy') await prisma.pharmacy.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id, storeName: 'Boots Manchester', licenseNumber: 'PHARM-001', address: { street: '14 Market St', city: 'Manchester' } } });
+      if (acc.role === 'patient') await prisma.patient.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id, gender: 'female', bloodType: 'O+', allergies: ['Penicillin'], dateOfBirth: new Date('1990-05-15') } });
+      if (acc.role === 'driver') await prisma.driver.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id, isVerified: true, isOnline: true, licensePlate: 'MN72 ABC', vehicleInfo: { type: 'car', make: 'Toyota' } } });
+    }
+    res.json({ message: 'All accounts seeded', accounts: accounts.map(a => a.email) });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
 // 404
 app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
 
 // Global error handler
 app.use(errorHandler);
 
-// ── Boot ───────────────────────────────────────────────────────────
+// â”€â”€ Boot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function bootstrap() {
   try {
     await prisma.$connect();
