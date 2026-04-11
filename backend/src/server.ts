@@ -87,6 +87,7 @@ app.use('/api/orders',    orderRouter);
 app.use('/api/delivery',  deliveryRouter);
 app.use('/api/payment',   paymentRouter);
 app.use('/api/admin',     adminRouter);
+app.use('/api/seed',      require('./routes/seed.routes').default);
 
 // 404
 app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
