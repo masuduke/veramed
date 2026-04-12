@@ -1,4 +1,4 @@
-// VeraMed — Prisma Schema
+// VeraMed â€” Prisma Schema
 // Run: npx prisma generate && npx prisma migrate dev
 
 generator client {
@@ -240,6 +240,9 @@ model Prescription {
   aiAnalysis  AiAnalysis? @relation(fields: [aiAnalysisId], references: [id])
   orders      Order[]
 
+  safeToDispensePartial Boolean  @default(false) @map("safe_to_dispense_partial")
+  approvals   PrescriptionApproval[]
+  escalations PrescriptionEscalation[]
   @@map("prescriptions")
 }
 
@@ -377,4 +380,48 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+model PrescriptionApproval {
+  id                    String    @id @default(uuid())
+  prescriptionId        String    @map("prescription_id")
+  specialty             String
+  doctorId              String?   @map("doctor_id")
+  status                String    @default("pending")
+  medications           Json      @default("[]")
+  notes                 String?
+  rejectionReason       String?   @map("rejection_reason")
+  safeToDispensePartial Boolean   @default(false) @map("safe_to_dispense_partial")
+  partialDispenseNote   String?   @map("partial_dispense_note")
+  assignedAt            DateTime  @default(now()) @map("assigned_at")
+  decidedAt             DateTime? @map("decided_at")
+  escalatedAt           DateTime? @map("escalated_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  prescription          Prescription @relation(fields: [prescriptionId], references: [id])
+  @@unique([prescriptionId, specialty])
+  @@map("prescription_approvals")
+}
+
+model PrescriptionEscalation {
+  id             String    @id @default(uuid())
+  prescriptionId String    @map("prescription_id")
+  approvalId     String?   @map("approval_id")
+  specialty      String
+  reason         String
+  resolved       Boolean   @default(false)
+  resolvedBy     String?   @map("resolved_by")
+  resolvedAt     DateTime? @map("resolved_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+  @@map("prescription_escalations")
+}
+
+model DoctorSpecialty {
+  specialty              String   @id
+  displayName            String   @map("display_name")
+  description            String?
+  canOverrideSpecialties String[] @map("can_override_specialties")
+  createdAt              DateTime @default(now()) @map("created_at")
+  @@map("doctor_specialties")
 }

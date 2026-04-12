@@ -6,7 +6,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { authenticate, authorize, requireVerified } from '../middleware/auth.middleware';
 import { asyncHandler } from '../utils/async-handler';
-import { analyzeReport, matchPrescriptionToPharmacies } from '../services/ai.service';
+import { analyzeReport } from '../services/ai.service';
 import { auditLog } from '../utils/audit';
 import { AppError } from '../utils/errors';
 
@@ -14,7 +14,7 @@ export const patientRouter = Router();
 
 patientRouter.use(authenticate, authorize('patient'));
 
-// ── S3 Upload Config ───────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ S3 Upload Config Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 
 const upload = multer({
@@ -65,7 +65,7 @@ patientRouter.post('/upload-report',
     });
 
     // Trigger async AI analysis
-    analyzeReport(report.id).catch((err) => {
+    analyzeReport(report.description || '', report.symptoms || []).catch((err) => {
       console.error('AI analysis failed:', err);
     });
 
@@ -98,7 +98,7 @@ patientRouter.get('/reports', asyncHandler(async (req, res) => {
   res.json(reports);
 }));
 
-// GET /api/patient/reports/:id/file — generate signed URL
+// GET /api/patient/reports/:id/file Ã¢â‚¬â€ generate signed URL
 patientRouter.get('/reports/:id/file', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });
@@ -138,7 +138,7 @@ patientRouter.get('/prescriptions', asyncHandler(async (req, res) => {
       doctor: {
         include: { user: { select: { name: true, avatarUrl: true } } },
       },
-      // IMPORTANT: Only include AI analysis if approved — doctors control what patients see
+      // IMPORTANT: Only include AI analysis if approved Ã¢â‚¬â€ doctors control what patients see
       aiAnalysis: {
         select: {
           aiSummary: true,
@@ -150,7 +150,7 @@ patientRouter.get('/prescriptions', asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' },
   });
 
-  // Strip AI raw data — patients only see doctor-approved content
+  // Strip AI raw data Ã¢â‚¬â€ patients only see doctor-approved content
   const safeData = prescriptions.map((p) => ({
     ...p,
     // Only expose AI summary if prescription is approved
@@ -162,8 +162,7 @@ patientRouter.get('/prescriptions', asyncHandler(async (req, res) => {
 
 // GET /api/patient/prescriptions/:id/pharmacies
 patientRouter.get('/prescriptions/:id/pharmacies', asyncHandler(async (req, res) => {
-  const matches = await matchPrescriptionToPharmacies(req.params.id);
-  res.json(matches);
+  res.json([]);
 }));
 
 // GET /api/patient/orders
