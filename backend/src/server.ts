@@ -14,6 +14,8 @@ import { orderRouter } from './routes/order.routes';
 import { deliveryRouter } from './routes/delivery.routes';
 import { paymentRouter } from './routes/payment.routes';
 import { adminRouter } from './routes/admin.routes';
+import { pricingRouter } from './routes/pricing.routes';
+import { profileRouter } from './routes/profile.routes';
 
 import { errorHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
@@ -86,9 +88,11 @@ app.use('/api/pharmacy',  pharmacyRouter);
 app.use('/api/orders',    orderRouter);
 app.use('/api/delivery',  deliveryRouter);
 app.use('/api/payment',   paymentRouter);
-app.use('/api', (await import('./routes/profile.routes')).profileRouter);
-app.use('/api/pricing', (await import('./routes/pricing.routes')).pricingRouter);
-app.use('/api/admin',     adminRouter);
+
+
+app.use('/api/admin',    adminRouter);
+app.use('/api/pricing', pricingRouter);
+app.use('/api',         profileRouter);
 
 
 
