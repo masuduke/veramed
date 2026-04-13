@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // MULTI-SPECIALTY BACKEND ROUTES
 // File: backend/src/routes/doctor.routes.ts (replace existing)
 // ============================================================
@@ -138,7 +138,7 @@ router.get('/pending-cases', asyncHandler(async (req: any, res: any) => {
               user: { select: { name: true, email: true } },
             },
           },
-          aiAnalysis: true,
+          aiAnalysis: { include: { report: true } },
           approvals: true,
         },
       },
@@ -371,7 +371,7 @@ export default router;
 
 
 // GET /api/doctor/profile/specialty
-doctorRouter.get('/profile/specialty', asyncHandler(async (req, res) => {
+router.get('/profile/specialty', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const doctor = await prisma.doctor.findUnique({
     where: { userId: req.user!.sub },
@@ -381,7 +381,7 @@ doctorRouter.get('/profile/specialty', asyncHandler(async (req, res) => {
 }));
 
 // PUT /api/doctor/profile/specialty
-doctorRouter.put('/profile/specialty', asyncHandler(async (req, res) => {
+router.put('/profile/specialty', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const { specialization } = req.body;
   if (!specialization) return res.status(400).json({ error: 'Specialization required' });
@@ -393,7 +393,7 @@ doctorRouter.put('/profile/specialty', asyncHandler(async (req, res) => {
 }));
 
 // GET /api/doctor/cases
-doctorRouter.get('/cases', asyncHandler(async (req, res) => {
+router.get('/cases', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const doctor = await prisma.doctor.findUnique({ where: { userId: req.user!.sub } });
   if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
@@ -410,6 +410,6 @@ doctorRouter.get('/cases', asyncHandler(async (req, res) => {
 }));
 
 // GET /api/doctor/escalations
-doctorRouter.get('/escalations', asyncHandler(async (req, res) => {
+router.get('/escalations', asyncHandler(async (req, res) => {
   res.json([]);
 }));
