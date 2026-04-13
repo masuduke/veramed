@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // MULTI-SPECIALTY BACKEND ROUTES
 // File: backend/src/routes/doctor.routes.ts (replace existing)
 // ============================================================
@@ -12,7 +12,7 @@ import { prisma } from '../server';
 const router = Router();
 router.use(authenticate, authorize('doctor'));
 
-// ── SPECIALTY CONSTANTS ──────────────────────────────────────
+// â”€â”€ SPECIALTY CONSTANTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const SPECIALTIES = [
   { value: 'general_medicine',   label: 'General Medicine / GP' },
   { value: 'cardiology',         label: 'Cardiology' },
@@ -31,7 +31,7 @@ export const SPECIALTIES = [
   { value: 'rheumatology',       label: 'Rheumatology' },
 ];
 
-// ── SPECIALTY MAP (AI keywords → specialty) ──────────────────
+// â”€â”€ SPECIALTY MAP (AI keywords â†’ specialty) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const SYMPTOM_SPECIALTY_MAP: Record<string, string[]> = {
   cardiology:       ['chest pain','heart','cardiac','palpitation','hypertension','blood pressure','arrhythmia','ecg','ekg','cholesterol','angina','coronary'],
   neurology:        ['headache','migraine','seizure','epilepsy','stroke','numbness','tremor','parkinson','alzheimer','multiple sclerosis','brain'],
@@ -49,7 +49,7 @@ export const SYMPTOM_SPECIALTY_MAP: Record<string, string[]> = {
   general_medicine: ['fever','cold','flu','fatigue','cough','weight','vitamin','infection','antibiotics'],
 };
 
-// ── HELPER: Determine required specialties from AI analysis ──
+// â”€â”€ HELPER: Determine required specialties from AI analysis â”€â”€
 export function determineRequiredSpecialties(
   description: string,
   symptoms: string[],
@@ -75,7 +75,7 @@ export function determineRequiredSpecialties(
   return Array.from(matched);
 }
 
-// ── HELPER: Split medications by specialty ───────────────────
+// â”€â”€ HELPER: Split medications by specialty â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function splitMedicationsBySpecialty(
   medications: any[],
   specialties: string[]
@@ -109,7 +109,7 @@ function splitMedicationsBySpecialty(
   return split;
 }
 
-// ── GET /pending-cases ───────────────────────────────────────
+// â”€â”€ GET /pending-cases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Returns cases matching THIS doctor's specialty
 router.get('/pending-cases', asyncHandler(async (req: any, res: any) => {
   const doctor = await prisma.doctor.findUnique({
@@ -183,7 +183,7 @@ router.get('/pending-cases', asyncHandler(async (req: any, res: any) => {
   res.json(cases);
 }));
 
-// ── POST /prescriptions/:id/approve ─────────────────────────
+// â”€â”€ POST /prescriptions/:id/approve â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post('/prescriptions/:id/approve', asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
   const { medications, notes, validDays = 30,
@@ -251,7 +251,7 @@ router.post('/prescriptions/:id/approve', asyncHandler(async (req: any, res: any
       },
     });
   } else if (anyPartial) {
-    // Partial approval — collect approved meds only
+    // Partial approval â€” collect approved meds only
     const approvedMeds = allApprovals
       .filter((a: any) => a.status === 'approved')
       .flatMap((a: any) => a.medications as any[]);
@@ -268,7 +268,7 @@ router.post('/prescriptions/:id/approve', asyncHandler(async (req: any, res: any
   res.json({
     success: true,
     message: allApproved
-      ? 'Prescription fully approved — patient notified'
+      ? 'Prescription fully approved â€” patient notified'
       : safeToDispensePartial
         ? `Your specialty approved. Patient can order approved meds. ${pendingCount} specialty pending.`
         : `Your specialty approved. Waiting for ${pendingCount} more specialty approval(s).`,
@@ -279,7 +279,7 @@ router.post('/prescriptions/:id/approve', asyncHandler(async (req: any, res: any
   });
 }));
 
-// ── POST /prescriptions/:id/reject ──────────────────────────
+// â”€â”€ POST /prescriptions/:id/reject â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post('/prescriptions/:id/reject', asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
   const { reason, notes } = req.body;
@@ -324,12 +324,12 @@ router.post('/prescriptions/:id/reject', asyncHandler(async (req: any, res: any)
   res.json({ success: true, message: 'Prescription rejected. Patient has been notified.' });
 }));
 
-// ── GET /specialties ─────────────────────────────────────────
+// â”€â”€ GET /specialties â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get('/specialties', asyncHandler(async (_req: any, res: any) => {
   res.json(SPECIALTIES);
 }));
 
-// ── PUT /profile/specialty ───────────────────────────────────
+// â”€â”€ PUT /profile/specialty â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.put('/profile/specialty', asyncHandler(async (req: any, res: any) => {
   const { specialization, bio, yearsExperience } = req.body;
   if (!specialization) throw new AppError('Specialization is required', 400);
@@ -342,7 +342,7 @@ router.put('/profile/specialty', asyncHandler(async (req: any, res: any) => {
   res.json({ success: true, specialization });
 }));
 
-// ── GET /escalations ─────────────────────────────────────────
+// â”€â”€ GET /escalations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Cases escalated due to timeout (admin only but useful for senior doctors)
 router.get('/escalations', asyncHandler(async (req: any, res: any) => {
   const doctor = await prisma.doctor.findUnique({
@@ -369,3 +369,47 @@ router.get('/escalations', asyncHandler(async (req: any, res: any) => {
 export { router as doctorRouter };
 export default router;
 
+
+// GET /api/doctor/profile/specialty
+doctorRouter.get('/profile/specialty', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const doctor = await prisma.doctor.findUnique({
+    where: { userId: req.user!.sub },
+    select: { specialization: true }
+  });
+  res.json({ specialization: doctor?.specialization || null });
+}));
+
+// PUT /api/doctor/profile/specialty
+doctorRouter.put('/profile/specialty', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const { specialization } = req.body;
+  if (!specialization) return res.status(400).json({ error: 'Specialization required' });
+  await prisma.doctor.update({
+    where: { userId: req.user!.sub },
+    data: { specialization }
+  });
+  res.json({ message: 'Specialization updated', specialization });
+}));
+
+// GET /api/doctor/cases
+doctorRouter.get('/cases', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const doctor = await prisma.doctor.findUnique({ where: { userId: req.user!.sub } });
+  if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
+  const cases = await prisma.prescription.findMany({
+    where: { doctorId: doctor.id, status: { in: ['pending_review', 'approved', 'rejected', 'modified'] } },
+    include: {
+      patient: { include: { user: { select: { name: true, email: true } } } },
+      aiAnalysis: { include: { report: { select: { id: true, fileName: true, description: true, symptoms: true, createdAt: true } } } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+  res.json(cases);
+}));
+
+// GET /api/doctor/escalations
+doctorRouter.get('/escalations', asyncHandler(async (req, res) => {
+  res.json([]);
+}));
