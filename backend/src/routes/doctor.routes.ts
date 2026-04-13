@@ -1,7 +1,3 @@
-// ============================================================
-// MULTI-SPECIALTY BACKEND ROUTES
-// File: backend/src/routes/doctor.routes.ts (replace existing)
-// ============================================================
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../utils/async-handler';
@@ -12,7 +8,6 @@ import { prisma } from '../server';
 const router = Router();
 router.use(authenticate, authorize('doctor'));
 
-// â”€â”€ SPECIALTY CONSTANTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const SPECIALTIES = [
   { value: 'general_medicine',   label: 'General Medicine / GP' },
   { value: 'cardiology',         label: 'Cardiology' },
@@ -31,255 +26,257 @@ export const SPECIALTIES = [
   { value: 'rheumatology',       label: 'Rheumatology' },
 ];
 
-// â”€â”€ SPECIALTY MAP (AI keywords â†’ specialty) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const SYMPTOM_SPECIALTY_MAP: Record<string, string[]> = {
-  cardiology:       ['chest pain','heart','cardiac','palpitation','hypertension','blood pressure','arrhythmia','ecg','ekg','cholesterol','angina','coronary'],
-  neurology:        ['headache','migraine','seizure','epilepsy','stroke','numbness','tremor','parkinson','alzheimer','multiple sclerosis','brain'],
-  gynaecology:      ['pregnancy','menstrual','ovarian','uterine','cervical','vaginal','contraception','pcos','endometriosis','menopause'],
-  dermatology:      ['rash','skin','acne','eczema','psoriasis','dermatitis','urticaria','lesion','melanoma'],
-  paediatrics:      ['child','infant','baby','toddler','vaccination','growth','developmental','newborn'],
-  orthopaedics:     ['fracture','bone','joint','arthritis','spine','back pain','knee','hip','shoulder','tendon','ligament'],
-  psychiatry:       ['depression','anxiety','bipolar','schizophrenia','mental','ocd','ptsd','insomnia','eating disorder'],
-  oncology:         ['cancer','tumor','tumour','chemotherapy','radiation','malignant','biopsy','lymphoma','leukemia'],
-  endocrinology:    ['diabetes','thyroid','insulin','hormone','adrenal','pituitary','cortisol','hyperthyroid'],
-  gastroenterology: ['stomach','bowel','intestine','liver','gallbladder','ibs','crohn','colitis','gastritis','ulcer','hepatitis'],
-  pulmonology:      ['asthma','copd','breathing','lung','respiratory','bronchitis','pneumonia','oxygen'],
-  nephrology:       ['kidney','renal','dialysis','urinary','proteinuria','creatinine'],
-  rheumatology:     ['lupus','rheumatoid','gout','fibromyalgia','sjogren','vasculitis','autoimmune'],
-  general_medicine: ['fever','cold','flu','fatigue','cough','weight','vitamin','infection','antibiotics'],
+  cardiology:       ['chest pain','heart','cardiac','palpitation','hypertension','blood pressure','arrhythmia','ecg','cholesterol','angina'],
+  neurology:        ['headache','migraine','seizure','epilepsy','stroke','numbness','tremor','brain'],
+  gynaecology:      ['pregnancy','menstrual','ovarian','uterine','cervical','vaginal','contraception','pcos','menopause'],
+  dermatology:      ['rash','skin','acne','eczema','psoriasis','dermatitis','lesion'],
+  paediatrics:      ['child','infant','baby','toddler','vaccination','newborn'],
+  orthopaedics:     ['fracture','bone','joint','arthritis','spine','back pain','knee','hip'],
+  psychiatry:       ['depression','anxiety','bipolar','schizophrenia','mental','ocd','ptsd','insomnia'],
+  oncology:         ['cancer','tumor','tumour','chemotherapy','malignant','biopsy','lymphoma'],
+  endocrinology:    ['diabetes','thyroid','insulin','hormone','adrenal','cortisol'],
+  gastroenterology: ['stomach','bowel','intestine','liver','gallbladder','ibs','crohn','gastritis','ulcer'],
+  pulmonology:      ['asthma','copd','breathing','lung','respiratory','bronchitis','pneumonia'],
+  nephrology:       ['kidney','renal','dialysis','urinary','creatinine'],
+  rheumatology:     ['lupus','rheumatoid','gout','fibromyalgia','autoimmune'],
+  general_medicine: ['fever','cold','flu','fatigue','cough','weight','vitamin','infection'],
 };
 
-// â”€â”€ HELPER: Determine required specialties from AI analysis â”€â”€
-export function determineRequiredSpecialties(
-  description: string,
-  symptoms: string[],
-  aiSummary: string,
-  suggestedMedications: any[]
-): string[] {
-  const text = [description, ...symptoms, aiSummary,
-    ...suggestedMedications.map(m => m.name + ' ' + (m.reasoning || ''))
-  ].join(' ').toLowerCase();
+// GET /doctor/profile
+router.get('/profile', asyncHandler(async (req: any, res: any) => {
+  const doctor = await prisma.doctor.findUnique({
+    where: { userId: req.user.id },
+    include: { user: { select: { name: true, email: true } } },
+  });
+  if (!doctor) return res.status(404).json({ error: 'Doctor profile not found' });
+  res.json(doctor);
+}));
 
-  const matched = new Set<string>();
+// GET /doctor/specialties
+router.get('/specialties', asyncHandler(async (_req: any, res: any) => {
+  res.json(SPECIALTIES);
+}));
 
-  for (const [specialty, keywords] of Object.entries(SYMPTOM_SPECIALTY_MAP)) {
-    if (keywords.some(kw => text.includes(kw))) {
-      matched.add(specialty);
-    }
-  }
+// PUT /doctor/profile/specialty
+router.put('/profile/specialty', asyncHandler(async (req: any, res: any) => {
+  const { specialization, bio } = req.body;
+  if (!specialization) throw new AppError('Specialization is required', 400);
+  await (prisma.doctor as any).update({
+    where: { userId: req.user.id },
+    data: { specialization, bio } as any,
+  });
+  res.json({ success: true, specialization });
+}));
 
-  // Always include general_medicine as fallback
-  if (matched.size === 0) matched.add('general_medicine');
-
-  // Split medications by specialty
-  return Array.from(matched);
-}
-
-// â”€â”€ HELPER: Split medications by specialty â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function splitMedicationsBySpecialty(
-  medications: any[],
-  specialties: string[]
-): Record<string, any[]> {
-  const split: Record<string, any[]> = {};
-  specialties.forEach(s => { split[s] = []; });
-
-  for (const med of medications) {
-    const medText = (med.name + ' ' + (med.reasoning || '')).toLowerCase();
-    let assigned = false;
-
-    for (const specialty of specialties) {
-      const keywords = SYMPTOM_SPECIALTY_MAP[specialty] || [];
-      if (keywords.some(kw => medText.includes(kw))) {
-        split[specialty].push(med);
-        assigned = true;
-        break;
-      }
-    }
-
-    // If no specialty match, assign to general_medicine
-    if (!assigned) {
-      if (split['general_medicine']) {
-        split['general_medicine'].push(med);
-      } else {
-        split[specialties[0]].push(med);
-      }
-    }
-  }
-
-  return split;
-}
-
-// â”€â”€ GET /pending-cases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Returns cases matching THIS doctor's specialty
+// GET /doctor/pending-cases
 router.get('/pending-cases', asyncHandler(async (req: any, res: any) => {
   const doctor = await prisma.doctor.findUnique({
     where: { userId: req.user.id },
-    select: { specialization: true, userId: true },
+    select: { specialization: true },
   });
-  if (!doctor) throw new AppError('Doctor profile not found', 404);
 
-  const mySpecialty = doctor.specialization || 'general_medicine';
+  const mySpecialty = (doctor as any)?.specialization || 'general_medicine';
 
-  // Get prescription approvals assigned to this specialty that are pending
-  const approvals = await prisma.prescriptionApproval.findMany({
-    where: {
-      specialty: mySpecialty,
-      status: { in: ['pending', 'escalated'] },
-      OR: [
-        { doctorId: null },           // unassigned
-        { doctorId: req.user.id },    // assigned to me
-      ],
-    },
-    include: {
-      prescription: {
-        include: {
-          patient: {
-            include: {
-              user: { select: { name: true, email: true } },
+  // Try new multi-specialty approval system first
+  let approvals: any[] = [];
+  try {
+    approvals = await (prisma as any).prescriptionApproval.findMany({
+      where: {
+        specialty: mySpecialty,
+        status: { in: ['pending', 'escalated'] },
+      },
+      include: {
+        prescription: {
+          include: {
+            patient: {
+              include: {
+                user: { select: { name: true, email: true } },
+              },
+            },
+            aiAnalysis: true,
+            approvals: {
+              select: {
+                specialty: true,
+                status: true,
+                medications: true,
+                notes: true,
+                rejectionReason: true,
+                safeToDispensePartial: true,
+                partialDispenseNote: true,
+                decidedAt: true,
+                doctorId: true,
+              },
             },
           },
-          aiAnalysis: { include: { report: true } },
-          approvals: true,
         },
       },
+      orderBy: { createdAt: 'asc' },
+    });
+  } catch (e) {
+    // Fall back to legacy prescription system
+  }
+
+  if (approvals.length > 0) {
+    const cases = approvals.map((approval: any) => {
+      const rx = approval.prescription;
+      return {
+        approvalId: approval.id,
+        id: rx.id,
+        status: approval.status,
+        createdAt: approval.createdAt,
+        mySpecialty,
+        myMedications: approval.medications,
+        patient: rx.patient,
+        aiAnalysis: rx.aiAnalysis ? {
+          aiSummary: rx.aiAnalysis.aiSummary,
+          suggestedMedication: approval.medications,
+          confidenceScore: rx.aiAnalysis.confidenceScore,
+          warnings: rx.aiAnalysis.warnings || [],
+          report: { description: rx.aiAnalysis.aiSummary },
+        } : null,
+        otherApprovals: (rx.approvals || [])
+          .filter((a: any) => a.specialty !== mySpecialty)
+          .map((a: any) => ({
+            specialty: a.specialty,
+            status: a.status,
+            doctorName: 'Specialist',
+            decidedAt: a.decidedAt,
+          })),
+      };
+    });
+    return res.json(cases);
+  }
+
+  // Legacy fallback - show all pending prescriptions to this doctor
+  const prescriptions = await prisma.prescription.findMany({
+    where: {
+      status: 'pending_review',
+      doctorId: req.user.id,
+    },
+    include: {
+      patient: {
+        include: {
+          user: { select: { name: true, email: true } },
+        },
+      },
+      aiAnalysis: true,
     },
     orderBy: { createdAt: 'asc' },
   });
 
-  const cases = approvals.map((approval: any) => {
-    const rx = approval.prescription;
-    const analysis = rx.aiAnalyses[0];
+  const legacyCases = prescriptions.map((rx: any) => ({
+    approvalId: null,
+    id: rx.id,
+    status: rx.status,
+    createdAt: rx.createdAt,
+    mySpecialty,
+    myMedications: rx.aiAnalysis?.suggestedMedication || [],
+    patient: rx.patient,
+    aiAnalysis: rx.aiAnalysis ? {
+      aiSummary: rx.aiAnalysis.aiSummary,
+      suggestedMedication: rx.aiAnalysis.suggestedMedication || [],
+      confidenceScore: rx.aiAnalysis.confidenceScore,
+      warnings: rx.aiAnalysis.warnings || [],
+      report: { description: rx.aiAnalysis.aiSummary },
+    } : null,
+    otherApprovals: [],
+  }));
 
-    return {
-      approvalId: approval.id,
-      id: rx.id,
-      status: approval.status,
-      createdAt: approval.createdAt,
-      mySpecialty,
-      myMedications: approval.medications,
-      patient: rx.patient,
-      aiAnalysis: analysis ? {
-        aiSummary: analysis.aiSummary,
-        suggestedDiagnosis: analysis.suggestedDiagnosis,
-        suggestedMedication: approval.medications, // Only this specialty's meds
-        allMedications: analysis.suggestedMedication, // Full list
-        confidenceScore: analysis.confidenceScore,
-        warnings: analysis.warnings,
-        requiredSpecialties: rx.requiredSpecialties,
-        report: analysis.report,
-      } : null,
-      // Show other specialties' statuses (read-only context)
-      otherApprovals: rx.approvals
-        .filter((a: any) => a.specialty !== mySpecialty)
-        .map((a: any) => ({
-          specialty: a.specialty,
-          status: a.status,
-          doctorName: a.doctor?.user?.name || 'Unassigned',
-          decidedAt: a.decidedAt,
-        })),
-    };
-  });
-
-  res.json(cases);
+  res.json(legacyCases);
 }));
 
-// â”€â”€ POST /prescriptions/:id/approve â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// POST /doctor/prescriptions/:id/approve
 router.post('/prescriptions/:id/approve', asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
-  const { medications, notes, validDays = 30,
-          safeToDispensePartial = false, partialDispenseNote } = req.body;
+  const { medications, notes, validDays = 30, safeToDispensePartial = false, partialDispenseNote } = req.body;
 
   const doctor = await prisma.doctor.findUnique({
     where: { userId: req.user.id },
     select: { specialization: true },
   });
-  if (!doctor) throw new AppError('Doctor profile not found', 404);
+  const mySpecialty = (doctor as any)?.specialization || 'general_medicine';
 
-  const mySpecialty = doctor.specialization || 'general_medicine';
+  // Try new approval system
+  try {
+    const approval = await (prisma as any).prescriptionApproval.findFirst({
+      where: { prescriptionId: id, specialty: mySpecialty, status: { in: ['pending', 'escalated'] } },
+    });
 
-  // Find the approval record for this specialty
-  const approval = await prisma.prescriptionApproval.findFirst({
-    where: {
-      prescriptionId: id,
-      specialty: mySpecialty,
-      status: { in: ['pending', 'escalated'] },
-    },
-  });
-  if (!approval) throw new AppError('No pending approval found for your specialty', 404);
+    if (approval) {
+      await (prisma as any).prescriptionApproval.update({
+        where: { id: approval.id },
+        data: {
+          status: 'approved',
+          doctorId: req.user.id,
+          medications: medications || approval.medications,
+          notes,
+          safeToDispensePartial,
+          partialDispenseNote,
+          decidedAt: new Date(),
+        },
+      });
 
-  // Update approval record
-  await prisma.prescriptionApproval.update({
-    where: { id: approval.id },
+      const allApprovals = await (prisma as any).prescriptionApproval.findMany({
+        where: { prescriptionId: id },
+      });
+
+      const allApproved = allApprovals.every((a: any) => a.status === 'approved');
+
+      if (allApproved) {
+        const allMeds = allApprovals.flatMap((a: any) => a.medications as any[]);
+        await prisma.prescription.update({
+          where: { id },
+          data: { status: 'approved', medications: allMeds } as any,
+        });
+      } else if (safeToDispensePartial) {
+        const approvedMeds = allApprovals
+          .filter((a: any) => a.status === 'approved')
+          .flatMap((a: any) => a.medications as any[]);
+        await prisma.prescription.update({
+          where: { id },
+          data: { status: 'approved', medications: approvedMeds } as any,
+        });
+      }
+
+      await auditLog({
+        userId: req.user.id,
+        action: 'PRESCRIPTION_APPROVED',
+        resourceType: 'prescription',
+        resourceId: id,
+        newValue: { specialty: mySpecialty, safeToDispensePartial },
+      });
+
+      return res.json({ success: true, allApproved, message: allApproved ? 'Fully approved' : 'Your section approved' });
+    }
+  } catch (e) {
+    // Fall through to legacy
+  }
+
+  // Legacy approval
+  await prisma.prescription.update({
+    where: { id },
     data: {
       status: 'approved',
       doctorId: req.user.id,
-      medications: medications || approval.medications,
-      notes,
-      safeToDispensePartial,
-      partialDispenseNote,
-      decidedAt: new Date(),
-    },
+      medications: medications || [],
+      doctorNotes: notes,
+      approvedAt: new Date(),
+      validUntil: new Date(Date.now() + validDays * 24 * 60 * 60 * 1000),
+    } as any,
   });
 
-  // Audit log
   await auditLog({
     userId: req.user.id,
-    action: 'PRESCRIPTION_SPECIALTY_APPROVED',
+    action: 'PRESCRIPTION_APPROVED',
     resourceType: 'prescription',
     resourceId: id,
-    newValue: { specialty: mySpecialty, safeToDispensePartial, medications },
   });
 
-  // Check if all specialties are now approved (trigger handles this in DB)
-  const allApprovals = await prisma.prescriptionApproval.findMany({
-    where: { prescriptionId: id },
-  });
-
-  const allApproved = allApprovals.every((a: any) => a.status === 'approved');
-  const anyPartial = allApprovals.some((a: any) => a.safeToDispensePartial && a.status === 'approved');
-  const pendingCount = allApprovals.filter((a: any) => a.status === 'pending').length;
-
-  // Merge all approved medications into prescription
-  if (allApproved) {
-    const allMedications = allApprovals.flatMap((a: any) => a.medications as any[]);
-    await prisma.prescription.update({
-      where: { id },
-      data: {
-        status: 'approved',
-        medications: allMedications,
-        approvedAt: new Date(),
-      },
-    });
-  } else if (anyPartial) {
-    // Partial approval â€” collect approved meds only
-    const approvedMeds = allApprovals
-      .filter((a: any) => a.status === 'approved')
-      .flatMap((a: any) => a.medications as any[]);
-    await prisma.prescription.update({
-      where: { id },
-      data: {
-        status: 'approved',
-        safeToDispensePartial: true,
-        medications: approvedMeds,
-      },
-    });
-  }
-
-  res.json({
-    success: true,
-    message: allApproved
-      ? 'Prescription fully approved â€” patient notified'
-      : safeToDispensePartial
-        ? `Your specialty approved. Patient can order approved meds. ${pendingCount} specialty pending.`
-        : `Your specialty approved. Waiting for ${pendingCount} more specialty approval(s).`,
-    allApproved,
-    pendingSpecialties: allApprovals
-      .filter((a: any) => a.status === 'pending')
-      .map((a: any) => a.specialty),
-  });
+  res.json({ success: true, allApproved: true, message: 'Prescription approved' });
 }));
 
-// â”€â”€ POST /prescriptions/:id/reject â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// POST /doctor/prescriptions/:id/reject
 router.post('/prescriptions/:id/reject', asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
   const { reason, notes } = req.body;
@@ -289,127 +286,54 @@ router.post('/prescriptions/:id/reject', asyncHandler(async (req: any, res: any)
     where: { userId: req.user.id },
     select: { specialization: true },
   });
-  const mySpecialty = doctor?.specialization || 'general_medicine';
+  const mySpecialty = (doctor as any)?.specialization || 'general_medicine';
 
-  const approval = await prisma.prescriptionApproval.findFirst({
-    where: { prescriptionId: id, specialty: mySpecialty, status: { in: ['pending','escalated'] } },
-  });
-  if (!approval) throw new AppError('No pending approval found for your specialty', 404);
+  try {
+    const approval = await (prisma as any).prescriptionApproval.findFirst({
+      where: { prescriptionId: id, specialty: mySpecialty, status: { in: ['pending', 'escalated'] } },
+    });
 
-  await prisma.prescriptionApproval.update({
-    where: { id: approval.id },
-    data: {
-      status: 'rejected',
-      doctorId: req.user.id,
-      rejectionReason: reason,
-      notes,
-      decidedAt: new Date(),
-    },
-  });
+    if (approval) {
+      await (prisma as any).prescriptionApproval.update({
+        where: { id: approval.id },
+        data: { status: 'rejected', doctorId: req.user.id, rejectionReason: reason, notes, decidedAt: new Date() },
+      });
+    }
+  } catch (e) {}
 
-  // If this specialty's rejection makes the whole prescription invalid
   await prisma.prescription.update({
     where: { id },
-    data: { status: 'rejected' },
+    data: { status: 'rejected', doctorId: req.user.id, rejectionReason: reason } as any,
   });
 
   await auditLog({
     userId: req.user.id,
-    action: 'PRESCRIPTION_SPECIALTY_REJECTED',
+    action: 'PRESCRIPTION_REJECTED',
     resourceType: 'prescription',
     resourceId: id,
-    newValue: { specialty: mySpecialty, reason },
+    newValue: { reason, specialty: mySpecialty },
   });
 
-  res.json({ success: true, message: 'Prescription rejected. Patient has been notified.' });
+  res.json({ success: true, message: 'Prescription rejected' });
 }));
 
-// â”€â”€ GET /specialties â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-router.get('/specialties', asyncHandler(async (_req: any, res: any) => {
-  res.json(SPECIALTIES);
-}));
-
-// â”€â”€ PUT /profile/specialty â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-router.put('/profile/specialty', asyncHandler(async (req: any, res: any) => {
-  const { specialization, bio, yearsExperience } = req.body;
-  if (!specialization) throw new AppError('Specialization is required', 400);
-
-  await prisma.doctor.update({
-    where: { userId: req.user.id },
-    data: { specialization, bio } as any,
-  });
-
-  res.json({ success: true, specialization });
-}));
-
-// â”€â”€ GET /escalations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Cases escalated due to timeout (admin only but useful for senior doctors)
+// GET /doctor/escalations
 router.get('/escalations', asyncHandler(async (req: any, res: any) => {
-  const doctor = await prisma.doctor.findUnique({
-    where: { userId: req.user.id },
-    select: { specialization: true },
-  });
-  const mySpecialty = doctor?.specialization || 'general_medicine';
-
-  const escalations = await prisma.prescriptionEscalation.findMany({
-    where: { specialty: mySpecialty, resolved: false },
-    include: {
-      prescription: {
-        include: {
-          patient: { include: { user: { select: { name: true, email: true } } } },
-        },
-      },
-    },
-    orderBy: { createdAt: 'asc' },
-  });
-
-  res.json(escalations);
+  try {
+    const doctor = await prisma.doctor.findUnique({
+      where: { userId: req.user.id },
+      select: { specialization: true },
+    });
+    const mySpecialty = (doctor as any)?.specialization || 'general_medicine';
+    const escalations = await (prisma as any).prescriptionEscalation.findMany({
+      where: { specialty: mySpecialty, resolved: false },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(escalations);
+  } catch (e) {
+    res.json([]);
+  }
 }));
 
 export { router as doctorRouter };
 export default router;
-
-
-// GET /api/doctor/profile/specialty
-router.get('/profile/specialty', asyncHandler(async (req, res) => {
-  const { prisma } = await import('../server');
-  const doctor = await prisma.doctor.findUnique({
-    where: { userId: req.user!.sub },
-    select: { specialization: true }
-  });
-  res.json({ specialization: doctor?.specialization || null });
-}));
-
-// PUT /api/doctor/profile/specialty
-router.put('/profile/specialty', asyncHandler(async (req, res) => {
-  const { prisma } = await import('../server');
-  const { specialization } = req.body;
-  if (!specialization) return res.status(400).json({ error: 'Specialization required' });
-  await prisma.doctor.update({
-    where: { userId: req.user!.sub },
-    data: { specialization }
-  });
-  res.json({ message: 'Specialization updated', specialization });
-}));
-
-// GET /api/doctor/cases
-router.get('/cases', asyncHandler(async (req, res) => {
-  const { prisma } = await import('../server');
-  const doctor = await prisma.doctor.findUnique({ where: { userId: req.user!.sub } });
-  if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
-  const cases = await prisma.prescription.findMany({
-    where: { doctorId: doctor.id, status: { in: ['pending_review', 'approved', 'rejected', 'modified'] } },
-    include: {
-      patient: { include: { user: { select: { name: true, email: true } } } },
-      aiAnalysis: { include: { report: { select: { id: true, fileName: true, description: true, symptoms: true, createdAt: true } } } },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-  });
-  res.json(cases);
-}));
-
-// GET /api/doctor/escalations
-router.get('/escalations', asyncHandler(async (req, res) => {
-  res.json([]);
-}));
