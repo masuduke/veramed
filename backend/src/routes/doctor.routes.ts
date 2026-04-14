@@ -46,7 +46,7 @@ export const SYMPTOM_SPECIALTY_MAP: Record<string, string[]> = {
 // GET /doctor/profile
 router.get('/profile', asyncHandler(async (req: any, res: any) => {
   const doctor = await prisma.doctor.findUnique({
-    where: { userId: req.user.id },
+    where: { userId: req.user.sub },
     include: { user: { select: { name: true, email: true } } },
   });
   if (!doctor) return res.status(404).json({ error: 'Doctor profile not found' });
@@ -63,7 +63,7 @@ router.put('/profile/specialty', asyncHandler(async (req: any, res: any) => {
   const { specialization, bio } = req.body;
   if (!specialization) throw new AppError('Specialization is required', 400);
   await (prisma.doctor as any).update({
-    where: { userId: req.user.id },
+    where: { userId: req.user.sub },
     data: { specialization, bio } as any,
   });
   res.json({ success: true, specialization });
@@ -72,7 +72,7 @@ router.put('/profile/specialty', asyncHandler(async (req: any, res: any) => {
 // GET /doctor/pending-cases
 router.get('/pending-cases', asyncHandler(async (req: any, res: any) => {
   const doctor = await prisma.doctor.findUnique({
-    where: { userId: req.user.id },
+    where: { userId: req.user.sub },
     select: { specialization: true },
   });
 
@@ -152,7 +152,7 @@ router.get('/pending-cases', asyncHandler(async (req: any, res: any) => {
   const prescriptions = await prisma.prescription.findMany({
     where: {
       status: 'pending_review',
-      doctorId: req.user.id,
+      doctorId: req.user.sub,
     },
     include: {
       patient: {
@@ -192,7 +192,7 @@ router.post('/prescriptions/:id/approve', asyncHandler(async (req: any, res: any
   const { medications, notes, validDays = 30, safeToDispensePartial = false, partialDispenseNote } = req.body;
 
   const doctor = await prisma.doctor.findUnique({
-    where: { userId: req.user.id },
+    where: { userId: req.user.sub },
     select: { specialization: true },
   });
   const mySpecialty = (doctor as any)?.specialization || 'general_medicine';
@@ -208,7 +208,7 @@ router.post('/prescriptions/:id/approve', asyncHandler(async (req: any, res: any
         where: { id: approval.id },
         data: {
           status: 'approved',
-          doctorId: req.user.id,
+          doctorId: req.user.sub,
           medications: medications || approval.medications,
           notes,
           safeToDispensePartial,
@@ -240,7 +240,7 @@ router.post('/prescriptions/:id/approve', asyncHandler(async (req: any, res: any
       }
 
       await auditLog({
-        userId: req.user.id,
+        userId: req.user.sub,
         action: 'PRESCRIPTION_APPROVED',
         resourceType: 'prescription',
         resourceId: id,
@@ -258,7 +258,7 @@ router.post('/prescriptions/:id/approve', asyncHandler(async (req: any, res: any
     where: { id },
     data: {
       status: 'approved',
-      doctorId: req.user.id,
+      doctorId: req.user.sub,
       medications: medications || [],
       doctorNotes: notes,
       approvedAt: new Date(),
@@ -267,7 +267,7 @@ router.post('/prescriptions/:id/approve', asyncHandler(async (req: any, res: any
   });
 
   await auditLog({
-    userId: req.user.id,
+    userId: req.user.sub,
     action: 'PRESCRIPTION_APPROVED',
     resourceType: 'prescription',
     resourceId: id,
@@ -283,7 +283,7 @@ router.post('/prescriptions/:id/reject', asyncHandler(async (req: any, res: any)
   if (!reason || reason.length < 10) throw new AppError('Please provide a detailed rejection reason', 400);
 
   const doctor = await prisma.doctor.findUnique({
-    where: { userId: req.user.id },
+    where: { userId: req.user.sub },
     select: { specialization: true },
   });
   const mySpecialty = (doctor as any)?.specialization || 'general_medicine';
@@ -296,18 +296,18 @@ router.post('/prescriptions/:id/reject', asyncHandler(async (req: any, res: any)
     if (approval) {
       await (prisma as any).prescriptionApproval.update({
         where: { id: approval.id },
-        data: { status: 'rejected', doctorId: req.user.id, rejectionReason: reason, notes, decidedAt: new Date() },
+        data: { status: 'rejected', doctorId: req.user.sub, rejectionReason: reason, notes, decidedAt: new Date() },
       });
     }
   } catch (e) {}
 
   await prisma.prescription.update({
     where: { id },
-    data: { status: 'rejected', doctorId: req.user.id, rejectionReason: reason } as any,
+    data: { status: 'rejected', doctorId: req.user.sub, rejectionReason: reason } as any,
   });
 
   await auditLog({
-    userId: req.user.id,
+    userId: req.user.sub,
     action: 'PRESCRIPTION_REJECTED',
     resourceType: 'prescription',
     resourceId: id,
@@ -321,7 +321,7 @@ router.post('/prescriptions/:id/reject', asyncHandler(async (req: any, res: any)
 router.get('/escalations', asyncHandler(async (req: any, res: any) => {
   try {
     const doctor = await prisma.doctor.findUnique({
-      where: { userId: req.user.id },
+      where: { userId: req.user.sub },
       select: { specialization: true },
     });
     const mySpecialty = (doctor as any)?.specialization || 'general_medicine';
