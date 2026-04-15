@@ -5,7 +5,7 @@ import { api } from '@/lib/api-client';
 
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'overview'|'users'|'wallets'|'withdrawals'|'payments'|'analytics'|'audit'|'notifications'||'verifications'|'refunds'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview'|'users'|'wallets'|'withdrawals'|'payments'|'analytics'|'audit'|'notifications'|'verifications'|'refunds'>('overview');
   const [bankEnabled, setBankEnabled] = useState(false);
   const [bankDetails, setBankDetails] = useState({ bankName: '', accountName: '', accountNumber: '', sortCode: '', reference: '' });
   const [savingBank, setSavingBank] = useState(false);
