@@ -1,3 +1,4 @@
+import { prisma } from '../server';
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../utils/async-handler';
@@ -89,3 +90,17 @@ adminRouter.get('/platform-stats', asyncHandler(async (req, res) => {
   ]);
   res.json({ users: { patients, doctors, pharmacies, activeDrivers: drivers }, orders: { total: totalOrders, delivered: deliveredOrders }, prescriptions: { pending: pendingPrescriptions } });
 }));
+// POST /admin/users/:id/verify
+adminRouter.post('/users/:id/verify', asyncHandler(async (req: any, res: any) => {
+  const { id } = req.params;
+  await prisma.user.update({ where: { id }, data: { status: 'active' } as any });
+  res.json({ success: true, message: 'User verified' });
+}));
+
+// POST /admin/users/:id/suspend
+adminRouter.post('/users/:id/suspend', asyncHandler(async (req: any, res: any) => {
+  const { id } = req.params;
+  await prisma.user.update({ where: { id }, data: { status: 'suspended' } as any });
+  res.json({ success: true, message: 'User suspended' });
+}));
+
