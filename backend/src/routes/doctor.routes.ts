@@ -335,5 +335,54 @@ router.get('/escalations', asyncHandler(async (req: any, res: any) => {
   }
 }));
 
+// GET /doctor/verification-status
+router.get('/verification-status', asyncHandler(async (req: any, res: any) => {
+  const doctor = await prisma.doctor.findUnique({
+    where: { userId: req.user.sub },
+    include: { user: { select: { status: true } } },
+  });
+  if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
+  const status = (doctor.user as any)?.status === 'verified' ? 'approved'
+    : (doctor as any).verificationSubmittedAt ? 'pending'
+    : 'unverified';
+  res.json({ status, doctor });
+}));
+
+// POST /doctor/submit-verification
+import multer from 'multer';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
+const verifyUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const s3Doc = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+
+router.post('/submit-verification', verifyUpload.any(), asyncHandler(async (req: any, res: any) => {
+  const files = req.files as Express.Multer.File[];
+  if (!files || files.length === 0) throw new AppError('No documents uploaded', 400);
+  const uploadedKeys: Record<string, string> = {};
+  for (const file of files) {
+    const key = doctor-docs//-;
+    await s3Doc.send(new PutObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET!,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      ServerSideEncryption: 'AES256',
+    }));
+    uploadedKeys[file.fieldname] = key;
+  }
+  await (prisma as any).doctor.update({
+    where: { userId: req.user.sub },
+    data: {
+      verificationDocs: uploadedKeys,
+      verificationSubmittedAt: new Date(),
+    } as any,
+  });
+  await (prisma as any).user.update({
+    where: { id: req.user.sub },
+    data: { status: 'pending_verification' } as any,
+  });
+  res.json({ success: true, message: 'Documents submitted for review' });
+}));
+
 export { router as doctorRouter };
 export default router;
