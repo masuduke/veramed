@@ -416,10 +416,13 @@ export default function DoctorDashboard() {
 
         {/* SPECIALTY PROFILE TAB */}
         {activeTab === 'verification' && (
-          <div style={{ background: 'white', borderRadius: '20px', padding: '28px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', marginBottom: '6px' }}>Verification Documents</h2>
-            <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '24px' }}>Upload your documents so admin can verify your account before you can approve prescriptions.</p>
-            <iframe src='/doctor/verification' style={{ width: '100%', height: '600px', border: 'none', borderRadius: '12px' }} />
+          <div style={{ background: 'white', borderRadius: '20px', padding: '28px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0B1F3A', marginBottom: '8px' }}>Upload Verification Documents</h2>
+            <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '24px', lineHeight: 1.6 }}>Upload your medical license, degree certificate and photo ID so admin can verify your account.</p>
+            <a href='/doctor/verification' style={{ display: 'inline-block', padding: '14px 32px', background: '#0B1F3A', color: 'white', borderRadius: '12px', fontSize: '14px', fontWeight: '700', textDecoration: 'none' }}>
+              📤 Go to Document Upload
+            </a>
           </div>
         )}
 
