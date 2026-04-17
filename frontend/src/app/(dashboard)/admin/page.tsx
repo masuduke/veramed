@@ -656,3 +656,39 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+function VerificationsTab({ onVerify }: { onVerify: (id: string) => void }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    api.get('/admin/verifications').then(r => setData(r.data)).catch(() => setData({ doctors: [], drivers: [] })).finally(() => setLoading(false));
+  }, []);
+  if (loading) return <div style={{ textAlign: 'center', padding: '48px', color: '#6B7280' }}>Loading...</div>;
+  const all = [...(data?.doctors || []), ...(data?.drivers || [])];
+  return (
+    <div style={{ background: 'white', borderRadius: '20px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+      <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', marginBottom: '6px' }}>Verification Requests</h2>
+      <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '20px' }}>Pending doctor and driver accounts waiting for admin verification.</p>
+      {all.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px', color: '#6B7280' }}>
+          <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
+          <p>No pending verifications.</p>
+        </div>
+      ) : all.map((u: any) => (
+        <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', border: '1px solid #E5E7EB', borderRadius: '12px', marginBottom: '10px' }}>
+          <div style={{ fontSize: '28px' }}>{u.role === 'doctor' ? '👨‍⚕️' : '🚗'}</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: '14px', fontWeight: '600', color: '#0B1F3A', margin: '0 0 2px' }}>{u.name}</p>
+            <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 2px' }}>{u.email}</p>
+            <p style={{ fontSize: '11px', color: '#9CA3AF', margin: 0 }}>
+              {u.role === 'doctor' ? u.doctor?.specialization : u.driver?.vehicleInfo?.type || 'Driver'} • Registered {new Date(u.createdAt).toLocaleDateString('en-GB')}
+            </p>
+          </div>
+          <button onClick={() => onVerify(u.id)} style={{ padding: '8px 18px', background: '#3CBEA0', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+            ✅ Verify
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}

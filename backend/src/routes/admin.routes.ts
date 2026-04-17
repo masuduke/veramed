@@ -77,6 +77,21 @@ adminRouter.get('/audit-logs', asyncHandler(async (req, res) => {
   res.json(logs);
 }));
 
+adminRouter.get('/verifications', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const doctors = await prisma.user.findMany({
+    where: { role: 'doctor', status: 'pending' },
+    include: { doctor: { select: { licenseNumber: true, specialization: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+  const drivers = await prisma.user.findMany({
+    where: { role: 'driver', status: 'pending' },
+    include: { driver: { select: { licensePlate: true, vehicleInfo: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({ doctors, drivers });
+}));
+
 adminRouter.get('/platform-stats', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const [patients, doctors, pharmacies, drivers, totalOrders, deliveredOrders, pendingPrescriptions] = await Promise.all([
