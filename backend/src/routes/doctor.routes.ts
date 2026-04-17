@@ -368,13 +368,9 @@ router.post('/submit-verification', verifyUpload.any(), asyncHandler(async (req:
     }));
     uploadedKeys[file.fieldname] = key;
   }
-  await (prisma as any).doctor.update({
-    where: { userId: req.user.sub },
-    data: { verificationDocs: uploadedKeys, verificationSubmittedAt: new Date() } as any,
-  });
   await prisma.user.update({
     where: { id: req.user.sub },
-    data: { status: 'active' } as any,
+    data: { status: 'pending' } as any,
   });
   res.json({ success: true, message: 'Documents submitted for review' });
 }));
