@@ -36,7 +36,7 @@ export default function DoctorDashboard() {
   const [mySpecialty, setMySpecialty] = useState('');
   const [savingSpecialty, setSavingSpecialty] = useState(false);
   const [specialtySaved, setSpecialtySaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pending'|'history'|'profile'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending'|'history'|'profile'|'verification'>('pending');
 
   const { data: cases, isLoading } = useQuery({
     queryKey: ['pending-cases'],
@@ -173,6 +173,7 @@ export default function DoctorDashboard() {
           {[
             { k: 'pending', l: `⏳ My Cases${pending.length > 0 ? ` (${pending.length})` : ''}` },
             { k: 'history', l: '📋 History' },
+            { k: 'verification', l: 'Upload Documents' },
             { k: 'profile', l: '⚙️ My Specialty' },
           ].map(t => <button key={t.k} style={tabStyle(t.k)} onClick={() => setActiveTab(t.k as any)}>{t.l}</button>)}
         </div>
@@ -414,6 +415,14 @@ export default function DoctorDashboard() {
         )}
 
         {/* SPECIALTY PROFILE TAB */}
+        {activeTab === 'verification' && (
+          <div style={{ background: 'white', borderRadius: '20px', padding: '28px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', marginBottom: '6px' }}>Verification Documents</h2>
+            <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '24px' }}>Upload your documents so admin can verify your account before you can approve prescriptions.</p>
+            <iframe src='/doctor/verification' style={{ width: '100%', height: '600px', border: 'none', borderRadius: '12px' }} />
+          </div>
+        )}
+
         {activeTab === 'profile' && (
           <div style={{ background: 'white', borderRadius: '20px', padding: '28px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
             <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', marginBottom: '6px' }}>My Specialty Settings</h2>
