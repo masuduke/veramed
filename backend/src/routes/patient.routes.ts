@@ -41,7 +41,7 @@ const upload = multer({
 patientRouter.post('/upload-report',
   upload.single('report'),
   asyncHandler(async (req, res) => {
-    if (!req.file) throw new AppError('No file uploaded', 400);
+    // File is optional - patients can submit symptoms only
 
     const { prisma } = await import('../server');
 
