@@ -77,7 +77,7 @@ export default function AdminDashboard() {
 
   const handleVerifyUser = async (id: string, action: 'verify'|'suspend') => {
     try {
-      await api.post(`/admin/users/${id}/${action}`);
+      await api.patch(`/admin/users/${id}/verify`, { status: action === 'verify' ? 'verified' : 'suspended' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     } catch (err: any) { alert('Error: ' + (err?.response?.data?.error || err.message)); }
   };
