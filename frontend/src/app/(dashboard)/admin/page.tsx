@@ -658,11 +658,10 @@ export default function AdminDashboard() {
 }
 
 function VerificationsTab({ onVerify }: { onVerify: (id: string) => void }) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    api.get('/admin/verifications').then(r => setData(r.data)).catch(() => setData({ doctors: [], drivers: [] })).finally(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['admin-verifications'],
+    queryFn: () => api.get('/admin/verifications').then(r => r.data).catch(() => ({ doctors: [], drivers: [] })),
+  });
   if (loading) return <div style={{ textAlign: 'center', padding: '48px', color: '#6B7280' }}>Loading...</div>;
   const all = [...(data?.doctors || []), ...(data?.drivers || [])];
   return (
