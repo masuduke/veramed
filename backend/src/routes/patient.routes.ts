@@ -64,8 +64,47 @@ patientRouter.post('/upload-report',
       },
     });
 
-    // Trigger async AI analysis
-    analyzeReport(report.description || '', report.symptoms || []).catch((err) => {
+    // Trigger AI analysis and save results
+    analyzeReport(report.description || '', report.symptoms || []).then(async (analysis) => {
+      const { prisma: db } = await import('../server');
+      try {
+        const aiAnalysis = await (db as any).aiAnalysis.create({
+          data: {
+            reportId: report.id,
+            aiSummary: analysis.aiSummary,
+            suggestedDiagnosis: analysis.suggestedDiagnosis,
+            suggestedMedication: analysis.suggestedMedication as any,
+            requiredSpecialties: analysis.requiredSpecialties,
+            confidenceScore: analysis.confidenceScore,
+            warnings: analysis.warnings,
+            urgencyLevel: analysis.urgencyLevel,
+          },
+        });
+        const prescription = await db.prescription.create({
+          data: {
+            patientId: patient.id,
+            status: 'pending_review',
+            medications: analysis.suggestedMedication as any,
+            aiAnalysisId: aiAnalysis.id,
+          } as any,
+        });
+        for (const specialty of analysis.requiredSpecialties) {
+          const specialtyMeds = analysis.medicationsBySpecialty[specialty] || [];
+          await (db as any).prescriptionApproval.create({
+            data: {
+              prescriptionId: prescription.id,
+              specialty,
+              status: 'pending',
+              medications: specialtyMeds as any,
+            },
+          });
+        }
+        await db.report.update({ where: { id: report.id }, data: { processed: true } as any });
+        console.log('AI analysis saved for report ' + report.id);
+      } catch (saveErr) {
+        console.error('Failed to save AI analysis:', saveErr);
+      }
+    }).catch((err) => {
       console.error('AI analysis failed:', err);
     });
 
