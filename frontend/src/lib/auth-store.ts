@@ -67,7 +67,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'veramed-auth',
-      partialize: (state) => ({ user: state.user, refreshToken: state.refreshToken }),
+      partialize: (state) => ({ user: state.user, accessToken: state.accessToken, refreshToken: state.refreshToken }),
     },
   ),
 );
