@@ -53,10 +53,10 @@ patientRouter.post('/upload-report',
     const report = await prisma.report.create({
       data: {
         patientId:     patient.id,
-        fileUrl:       s3File.key,        // Store S3 key, NOT public URL
-        fileName:      req.file.originalname,
-        fileType:      req.file.mimetype,
-        fileSizeBytes: req.file.size,
+        fileUrl:       s3File?.key || '',
+        fileName:      req.file?.originalname || '',
+        fileType:      req.file?.mimetype || '',
+        fileSizeBytes: req.file?.size || 0,
         description:   req.body.description || '',
         symptoms:      req.body.symptoms
           ? JSON.parse(req.body.symptoms)
