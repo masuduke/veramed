@@ -80,14 +80,31 @@ patientRouter.post('/upload-report',
             urgencyLevel: analysis.urgencyLevel,
           },
         });
+        // Find longest idle doctor for primary specialty
+        const primarySpecialty = analysis.requiredSpecialties[0] || 'general_medicine';
+        const assignedDoctor = await db.doctor.findFirst({
+          where: {
+            specialization: primarySpecialty,
+            available: true,
+            user: { status: 'verified' },
+          },
+          orderBy: { lastCaseAssignedAt: 'asc' },
+        });
         const prescription = await db.prescription.create({
           data: {
             patientId: patient.id,
+            doctorId: assignedDoctor?.id || undefined,
             status: 'pending_review',
             medications: analysis.suggestedMedication as any,
             aiAnalysisId: aiAnalysis.id,
           } as any,
         });
+        if (assignedDoctor) {
+          await db.doctor.update({
+            where: { id: assignedDoctor.id },
+            data: { lastCaseAssignedAt: new Date() } as any,
+          });
+        }
         for (const specialty of analysis.requiredSpecialties) {
           const specialtyMeds = analysis.medicationsBySpecialty[specialty] || [];
           await (db as any).prescriptionApproval.create({

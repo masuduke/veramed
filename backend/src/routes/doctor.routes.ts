@@ -90,6 +90,12 @@ router.get('/pending-cases', asyncHandler(async (req: any, res: any) => {
           { status: { in: ['pending', 'escalated'] } },
           { status: { in: ['approved', 'rejected'] }, doctorId: req.user.sub },
         ],
+        prescription: {
+          OR: [
+            { doctorId: null },
+            { doctor: { userId: req.user.sub } },
+          ],
+        },
       },
       include: {
         prescription: {
