@@ -338,6 +338,56 @@ export default function DoctorDashboard() {
                     </div>
                   )}
 
+                  {/* Recommended Tests */}
+                  {selectedCase.aiAnalysis?.recommendedTests?.length > 0 && (
+                    <div style={{ padding: '10px 12px', background: '#F0FDF4', borderRadius: '10px', border: '1px solid #BBF7D0', marginBottom: '12px' }}>
+                      <p style={{ fontSize: '11px', fontWeight: '700', color: '#15803D', marginBottom: '6px' }}>🧪 Recommended Tests</p>
+                      {selectedCase.aiAnalysis.recommendedTests.map((t: any, i: number) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #DCFCE7' }}>
+                          <div>
+                            <p style={{ fontSize: '12px', fontWeight: '600', color: '#0B1F3A', margin: '0 0 1px' }}>{t.testName}</p>
+                            <p style={{ fontSize: '11px', color: '#6B7280', margin: 0 }}>{t.reason}</p>
+                          </div>
+                          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: '600', flexShrink: 0, marginLeft: '8px',
+                            background: t.urgency === 'emergency' ? '#FEE2E2' : t.urgency === 'urgent' ? '#FEF3C7' : '#F3F4F6',
+                            color: t.urgency === 'emergency' ? '#DC2626' : t.urgency === 'urgent' ? '#D97706' : '#6B7280' }}>
+                            {t.urgency}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Lifestyle Advice */}
+                  {selectedCase.aiAnalysis?.lifestyleAdvice?.length > 0 && (
+                    <div style={{ padding: '10px 12px', background: '#EFF6FF', borderRadius: '10px', border: '1px solid #BFDBFE', marginBottom: '12px' }}>
+                      <p style={{ fontSize: '11px', fontWeight: '700', color: '#1D4ED8', marginBottom: '6px' }}>💧 Lifestyle Advice</p>
+                      {selectedCase.aiAnalysis.lifestyleAdvice.map((a: string, i: number) => (
+                        <p key={i} style={{ fontSize: '12px', color: '#1E3A5F', margin: '2px 0' }}>• {a}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Dietary Advice */}
+                  {selectedCase.aiAnalysis?.dietaryAdvice?.length > 0 && (
+                    <div style={{ padding: '10px 12px', background: '#F0FDF4', borderRadius: '10px', border: '1px solid #BBF7D0', marginBottom: '12px' }}>
+                      <p style={{ fontSize: '11px', fontWeight: '700', color: '#15803D', marginBottom: '6px' }}>🥗 Dietary Advice</p>
+                      {selectedCase.aiAnalysis.dietaryAdvice.map((a: string, i: number) => (
+                        <p key={i} style={{ fontSize: '12px', color: '#166534', margin: '2px 0' }}>• {a}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* When to seek emergency */}
+                  {selectedCase.aiAnalysis?.whenToSeekEmergency?.length > 0 && (
+                    <div style={{ padding: '10px 12px', background: '#FEF2F2', borderRadius: '10px', border: '1px solid #FECACA', marginBottom: '12px' }}>
+                      <p style={{ fontSize: '11px', fontWeight: '700', color: '#DC2626', marginBottom: '6px' }}>🚨 Seek Emergency If</p>
+                      {selectedCase.aiAnalysis.whenToSeekEmergency.map((a: string, i: number) => (
+                        <p key={i} style={{ fontSize: '12px', color: '#991B1B', margin: '2px 0' }}>• {a}</p>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Safe to dispense partial option */}
                   {selectedCase.otherApprovals?.some((oa: any) => oa.status === 'pending') && (
                     <div style={{ padding: '14px', background: '#F0FDF4', borderRadius: '12px', border: '1px solid #BBF7D0', marginBottom: '12px' }}>
