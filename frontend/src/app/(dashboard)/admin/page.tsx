@@ -646,11 +646,7 @@ export default function AdminDashboard() {
         )}
 {/* VERIFICATIONS */}
 {activeTab === 'verifications' && (
-  <div style={{ background: 'white', borderRadius: '20px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-    <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', marginBottom: '6px' }}>Verification Requests</h2>
-    <p style={{ fontSize: '13px', color: '#6B7280' }}>Doctor and driver verification documents submitted for review.</p>
-    <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '32px', textAlign: 'center' }}>Coming soon — backend verification routes needed first.</p>
-  </div>
+  <VerificationsTab onVerify={(id: string) => handleVerifyUser(id, 'verify')} />
 )}
       </div>
     </div>
