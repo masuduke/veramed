@@ -81,7 +81,7 @@ adminRouter.get('/verifications', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const doctors = await prisma.user.findMany({
     where: { role: 'doctor', status: 'pending' },
-    include: { doctor: { select: { licenseNumber: true, specialization: true } } },
+    include: { doctor: { select: { licenseNumber: true, specialization: true, verificationDocs: true } } },
     orderBy: { createdAt: 'desc' },
   });
   const drivers = await prisma.user.findMany({
