@@ -354,8 +354,9 @@ router.get('/verification-status', asyncHandler(async (req: any, res: any) => {
   });
   if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
   const userStatus = (doctor.user as any)?.status || 'unverified';
-  const status = userStatus === 'verified' ? 'approved' : (doctor as any).verificationSubmittedAt ? 'pending' : 'unverified';
-  res.json({ status, doctor });
+  const status = userStatus === 'verified' ? 'approved' : (doctor as any).verificationDocs ? 'pending' : 'unverified';
+  const rejectionReason = (doctor as any).verificationRejectedReason || null;
+  res.json({ status, rejectionReason, doctor });
 }));
 
 // POST /doctor/submit-verification

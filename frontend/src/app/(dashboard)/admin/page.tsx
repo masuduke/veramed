@@ -693,8 +693,18 @@ function VerificationsTab({ onVerify }: { onVerify: (id: string) => void }) {
             <button onClick={() => loadDocs(u.id)} style={{ padding: '6px 14px', background: '#EEF2FF', color: '#4338CA', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', marginRight: '8px' }}>
               {expandedId === u.id ? 'Hide Docs' : 'View Docs'}
             </button>
-            <button onClick={() => onVerify(u.id)} style={{ padding: '8px 18px', background: '#3CBEA0', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+            <button onClick={() => onVerify(u.id)} style={{ padding: '8px 18px', background: '#3CBEA0', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', marginRight: '8px' }}>
               Verify
+            </button>
+            <button onClick={() => {
+              const reason = prompt('Rejection reason (will be shown to doctor):');
+              if (reason && reason.length > 5) {
+                api.patch('/admin/users/' + u.id + '/reject-verification', { reason })
+                  .then(() => alert('Rejection sent to doctor'))
+                  .catch(() => alert('Error sending rejection'));
+              }
+            }} style={{ padding: '8px 18px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+              Reject
             </button>
           </div>
           {expandedId === u.id && (

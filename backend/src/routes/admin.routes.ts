@@ -114,6 +114,21 @@ adminRouter.get('/verifications', asyncHandler(async (req, res) => {
   res.json({ doctors, drivers });
 }));
 
+adminRouter.patch('/users/:id/reject-verification', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const { reason } = req.body;
+  if (!reason) return res.status(400).json({ error: 'Rejection reason is required' });
+  await prisma.user.update({
+    where: { id: req.params.id },
+    data: { status: 'pending' } as any,
+  });
+  await prisma.doctor.update({
+    where: { userId: req.params.id },
+    data: { verificationRejectedReason: reason } as any,
+  }).catch(() => {});
+  res.json({ message: 'Verification rejected', reason });
+}));
+
 adminRouter.get('/platform-stats', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const [patients, doctors, pharmacies, drivers, totalOrders, deliveredOrders, pendingPrescriptions] = await Promise.all([

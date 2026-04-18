@@ -138,7 +138,8 @@ model Doctor {
   avgRating        Decimal?  @map("avg_rating") @db.Decimal(3, 2)
   verifiedAt            DateTime? @map("verified_at")
   lastCaseAssignedAt    DateTime? @map("last_case_assigned_at")
-  verificationDocs  Json?     @map("verification_docs")
+  verificationDocs          Json?     @map("verification_docs")
+  verificationRejectedReason String?   @map("verification_rejected_reason")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 

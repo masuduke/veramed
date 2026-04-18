@@ -22,10 +22,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     setReady(true);
-    if (!useAuthStore.getState().user) {
+    const currentUser = useAuthStore.getState().user;
+    if (!currentUser) {
       router.replace('/login');
+      return;
     }
-  }, [router]);
+    if (currentUser.role === 'doctor' && currentUser.status !== 'verified') {
+      if (!pathname.includes('/doctor/verification')) {
+        router.replace('/doctor/verification');
+      }
+    }
+  }, [router, pathname]);
 
   const handleLogout = async () => {
     await logout();
