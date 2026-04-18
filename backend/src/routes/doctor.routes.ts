@@ -86,7 +86,7 @@ router.get('/pending-cases', asyncHandler(async (req: any, res: any) => {
     approvals = await (prisma as any).prescriptionApproval.findMany({
       where: {
         specialty: mySpecialty,
-        status: { in: ['pending', 'escalated'] },
+        status: { in: ['pending', 'escalated', 'approved', 'rejected'] },
       },
       include: {
         prescription: {
