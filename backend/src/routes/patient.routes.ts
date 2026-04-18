@@ -71,6 +71,7 @@ patientRouter.post('/upload-report',
         const aiAnalysis = await (db as any).aiAnalysis.create({
           data: {
             reportId: report.id,
+            modelVersion: process.env.AI_MODEL || 'claude-sonnet-4-20250514',
             aiSummary: analysis.aiSummary,
             suggestedDiagnosis: analysis.suggestedDiagnosis,
             suggestedMedication: analysis.suggestedMedication as any,
