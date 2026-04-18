@@ -225,7 +225,7 @@ model AiAnalysis {
 model Prescription {
   id              String             @id @default(uuid())
   patientId       String             @map("patient_id")
-  doctorId        String             @map("doctor_id")
+  doctorId        String?            @map("doctor_id")
   aiAnalysisId    String?            @unique @map("ai_analysis_id")
   status          PrescriptionStatus @default(pending_review)
   medications     Json
@@ -237,7 +237,7 @@ model Prescription {
   updatedAt       DateTime           @updatedAt @map("updated_at")
 
   patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  doctor      Doctor      @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  doctor      Doctor?     @relation(fields: [doctorId], references: [id], onDelete: Restrict)
   aiAnalysis  AiAnalysis? @relation(fields: [aiAnalysisId], references: [id])
   orders      Order[]
 
