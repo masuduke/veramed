@@ -83,6 +83,7 @@ patientRouter.post('/upload-report',
         const prescription = await db.prescription.create({
           data: {
             patientId: patient.id,
+            doctorId: patient.userId,
             status: 'pending_review',
             medications: analysis.suggestedMedication as any,
             aiAnalysisId: aiAnalysis.id,
