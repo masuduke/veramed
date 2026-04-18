@@ -1,7 +1,3 @@
-// ============================================================
-// UPDATED AI SERVICE
-// File: backend/src/services/ai.service.ts (replace existing)
-// ============================================================
 import Anthropic from '@anthropic-ai/sdk';
 import { SYMPTOM_SPECIALTY_MAP } from '../routes/doctor.routes';
 
@@ -18,6 +14,10 @@ export interface AIAnalysisResult {
   urgencyLevel: 'routine' | 'urgent' | 'emergency';
   referralRecommended: boolean;
   referralNote?: string;
+  recommendedTests: RecommendedTest[];
+  lifestyleAdvice: string[];
+  dietaryAdvice: string[];
+  whenToSeekEmergency: string[];
 }
 
 export interface Medication {
@@ -29,7 +29,14 @@ export interface Medication {
   reasoning: string;
   contraindications: string[];
   requiresMonitoring: boolean;
-  specialty: string; // which specialty should approve this
+  specialty: string;
+}
+
+export interface RecommendedTest {
+  testName: string;
+  reason: string;
+  urgency: 'routine' | 'urgent' | 'emergency';
+  testType: 'blood' | 'urine' | 'imaging' | 'swab' | 'biopsy' | 'ecg' | 'other';
 }
 
 export async function analyzeReport(
@@ -45,28 +52,59 @@ CRITICAL RULES:
 3. You MUST identify which medical specialty should review each medication
 4. You MUST flag if multiple specialists are needed
 5. You MUST assign each medication to exactly one specialty
-6. Return ONLY valid JSON, no markdown, no explanation outside JSON
+6. You MUST recommend relevant diagnostic tests before medication where appropriate
+7. You MUST provide lifestyle, hydration, dietary and self-care advice
+8. Return ONLY valid JSON, no markdown, no explanation outside JSON
 
-Available specialties: general_medicine, cardiology, gynaecology, dermatology, 
+Available specialties: general_medicine, cardiology, gynaecology, dermatology,
 neurology, paediatrics, orthopaedics, psychiatry, oncology, emergency_medicine,
 endocrinology, gastroenterology, pulmonology, nephrology, rheumatology`;
 
-  const prompt = `Analyse this patient case and return a JSON object.
+  const prompt = `Analyse this patient case thoroughly and return a comprehensive JSON object.
 
 PATIENT DESCRIPTION: ${description}
 SYMPTOMS: ${symptoms.join(', ') || 'None specified'}
-${fileText ? `REPORT CONTENT: ${fileText.slice(0, 2000)}` : ''}
+${fileText ? `REPORT/TEST RESULTS: ${fileText.slice(0, 3000)}` : ''}
 
-Return this exact JSON structure (no markdown, no backticks):
+Return this EXACT JSON structure (no markdown, no backticks):
 {
-  "aiSummary": "2-3 sentence clinical summary",
-  "suggestedDiagnosis": "Most likely diagnosis or differential",
+  "aiSummary": "3-4 sentence clinical summary including symptom duration, severity and key concerns",
+  "suggestedDiagnosis": "Most likely diagnosis with differential diagnoses listed",
   "urgencyLevel": "routine|urgent|emergency",
   "requiredSpecialties": ["specialty1", "specialty2"],
   "confidenceScore": 0.0-1.0,
-  "warnings": ["any red flags or contraindications"],
+  "warnings": ["specific red flags or contraindications to watch for"],
   "referralRecommended": true|false,
-  "referralNote": "if referral needed, explain why",
+  "referralNote": "explanation if referral needed",
+  "recommendedTests": [
+    {
+      "testName": "Full Blood Count (FBC)",
+      "reason": "To check for infection, anaemia or immune response",
+      "urgency": "urgent",
+      "testType": "blood"
+    },
+    {
+      "testName": "C-Reactive Protein (CRP)",
+      "reason": "Inflammation marker to distinguish viral vs bacterial infection",
+      "urgency": "urgent",
+      "testType": "blood"
+    }
+  ],
+  "lifestyleAdvice": [
+    "Rest as much as possible and avoid strenuous activity",
+    "Stay well hydrated - aim for 2-3 litres of water per day",
+    "Monitor temperature every 4-6 hours and keep a record"
+  ],
+  "dietaryAdvice": [
+    "Eat light, easily digestible foods such as soups, broths and toast",
+    "Avoid alcohol and caffeine which can worsen dehydration",
+    "Include vitamin C rich foods like oranges and berries to support immunity"
+  ],
+  "whenToSeekEmergency": [
+    "Temperature exceeds 40 degrees Celsius",
+    "Difficulty breathing or chest pain develops",
+    "Confusion, severe headache or stiff neck appears"
+  ],
   "suggestedMedication": [
     {
       "name": "Drug name and dose",
@@ -74,7 +112,7 @@ Return this exact JSON structure (no markdown, no backticks):
       "dosageGuidance": "Specific dosage",
       "frequency": "How often",
       "duration": "How long",
-      "reasoning": "Clinical reasoning",
+      "reasoning": "Clinical reasoning for this medication",
       "contraindications": ["list contraindications"],
       "requiresMonitoring": true|false,
       "specialty": "which specialty should approve THIS medication"
@@ -85,7 +123,7 @@ Return this exact JSON structure (no markdown, no backticks):
   try {
     const response = await client.messages.create({
       model: process.env.AI_MODEL || 'claude-sonnet-4-20250514',
-      max_tokens: parseInt(process.env.AI_MAX_TOKENS || '2000'),
+      max_tokens: parseInt(process.env.AI_MAX_TOKENS || '3000'),
       system: SAFETY_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -94,7 +132,6 @@ Return this exact JSON structure (no markdown, no backticks):
     const cleaned = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned);
 
-    // Group medications by specialty
     const medicationsBySpecialty: Record<string, Medication[]> = {};
     for (const med of (parsed.suggestedMedication || [])) {
       const spec = med.specialty || 'general_medicine';
@@ -102,11 +139,9 @@ Return this exact JSON structure (no markdown, no backticks):
       medicationsBySpecialty[spec].push(med);
     }
 
-    // Validate specialties - ensure all required ones are real
     const validSpecialties = Object.keys(SYMPTOM_SPECIALTY_MAP);
     const requiredSpecialties = (parsed.requiredSpecialties || ['general_medicine'])
       .filter((s: string) => validSpecialties.includes(s));
-
     if (requiredSpecialties.length === 0) requiredSpecialties.push('general_medicine');
 
     return {
@@ -120,11 +155,14 @@ Return this exact JSON structure (no markdown, no backticks):
       urgencyLevel: parsed.urgencyLevel || 'routine',
       referralRecommended: parsed.referralRecommended || false,
       referralNote: parsed.referralNote,
+      recommendedTests: parsed.recommendedTests || [],
+      lifestyleAdvice: parsed.lifestyleAdvice || [],
+      dietaryAdvice: parsed.dietaryAdvice || [],
+      whenToSeekEmergency: parsed.whenToSeekEmergency || [],
     };
 
   } catch (err) {
     console.error('AI analysis failed:', err);
-    // Safe fallback - still requires doctor review
     return {
       aiSummary: 'AI analysis could not be completed. A doctor will review your case manually.',
       suggestedDiagnosis: 'Manual review required',
@@ -132,10 +170,13 @@ Return this exact JSON structure (no markdown, no backticks):
       medicationsBySpecialty: {},
       requiredSpecialties: ['general_medicine'],
       confidenceScore: 0,
-      warnings: ['AI analysis unavailable — manual doctor review required'],
+      warnings: ['AI analysis unavailable - manual doctor review required'],
       urgencyLevel: 'routine',
       referralRecommended: false,
+      recommendedTests: [],
+      lifestyleAdvice: ['Rest and stay hydrated', 'Monitor your symptoms'],
+      dietaryAdvice: ['Eat light nutritious meals', 'Stay well hydrated'],
+      whenToSeekEmergency: ['Symptoms worsen significantly', 'Difficulty breathing', 'High fever above 39 degrees'],
     };
   }
 }
-

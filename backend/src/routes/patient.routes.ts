@@ -78,6 +78,11 @@ patientRouter.post('/upload-report',
             confidenceScore: analysis.confidenceScore,
             warnings: analysis.warnings,
             urgencyLevel: analysis.urgencyLevel,
+            recommendedTests: analysis.recommendedTests as any,
+            lifestyleAdvice: analysis.lifestyleAdvice,
+            dietaryAdvice: analysis.dietaryAdvice,
+            whenToSeekEmergency: analysis.whenToSeekEmergency,
+            urgencyLevel: analysis.urgencyLevel,
           },
         });
         // Find longest idle doctor for primary specialty
