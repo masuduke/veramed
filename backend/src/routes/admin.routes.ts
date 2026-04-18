@@ -77,6 +77,28 @@ adminRouter.get('/audit-logs', asyncHandler(async (req, res) => {
   res.json(logs);
 }));
 
+adminRouter.get('/verifications/:id/docs', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3');
+  const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+  const s3 = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+  const doctor = await prisma.doctor.findFirst({
+    where: { userId: req.params.id },
+    select: { verificationDocs: true } as any,
+  });
+  if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
+  const docs = (doctor as any).verificationDocs || {};
+  const signedUrls: Record<string, string> = {};
+  for (const [key, s3Key] of Object.entries(docs)) {
+    const command = new GetObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET as string,
+      Key: s3Key as string,
+    });
+    signedUrls[key] = await getSignedUrl(s3, command, { expiresIn: 900 });
+  }
+  res.json(signedUrls);
+}));
+
 adminRouter.get('/verifications', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const doctors = await prisma.user.findMany({

@@ -654,10 +654,20 @@ export default function AdminDashboard() {
 }
 
 function VerificationsTab({ onVerify }: { onVerify: (id: string) => void }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [docUrls, setDocUrls] = useState<Record<string, Record<string, string>>>({});
   const { data, isLoading: loading } = useQuery({
     queryKey: ['admin-verifications'],
     queryFn: () => api.get('/admin/verifications').then(r => r.data).catch(() => ({ doctors: [], drivers: [] })),
   });
+  const loadDocs = async (userId: string) => {
+    if (docUrls[userId]) { setExpandedId(expandedId === userId ? null : userId); return; }
+    try {
+      const res = await api.get('/admin/verifications/' + userId + '/docs');
+      setDocUrls(prev => ({ ...prev, [userId]: res.data }));
+      setExpandedId(userId);
+    } catch { setExpandedId(expandedId === userId ? null : userId); }
+  };
   if (loading) return <div style={{ textAlign: 'center', padding: '48px', color: '#6B7280' }}>Loading...</div>;
   const all = [...(data?.doctors || []), ...(data?.drivers || [])];
   return (
@@ -670,18 +680,39 @@ function VerificationsTab({ onVerify }: { onVerify: (id: string) => void }) {
           <p>No pending verifications.</p>
         </div>
       ) : all.map((u: any) => (
-        <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', border: '1px solid #E5E7EB', borderRadius: '12px', marginBottom: '10px' }}>
-          <div style={{ fontSize: '28px' }}>{u.role === 'doctor' ? '👨‍⚕️' : '🚗'}</div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: '14px', fontWeight: '600', color: '#0B1F3A', margin: '0 0 2px' }}>{u.name}</p>
-            <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 2px' }}>{u.email}</p>
-            <p style={{ fontSize: '11px', color: '#9CA3AF', margin: 0 }}>
-              {u.role === 'doctor' ? u.doctor?.specialization : u.driver?.vehicleInfo?.type || 'Driver'} • Registered {new Date(u.createdAt).toLocaleDateString('en-GB')}
-            </p>
+        <div key={u.id} style={{ border: '1px solid #E5E7EB', borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px' }}>
+            <div style={{ fontSize: '28px' }}>{u.role === 'doctor' ? '👨‍⚕️' : '🚗'}</div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '14px', fontWeight: '600', color: '#0B1F3A', margin: '0 0 2px' }}>{u.name}</p>
+              <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 2px' }}>{u.email}</p>
+              <p style={{ fontSize: '11px', color: '#9CA3AF', margin: 0 }}>
+                {u.role === 'doctor' ? u.doctor?.specialization : u.driver?.vehicleInfo?.type || 'Driver'} • Registered {new Date(u.createdAt).toLocaleDateString('en-GB')}
+              </p>
+            </div>
+            <button onClick={() => loadDocs(u.id)} style={{ padding: '6px 14px', background: '#EEF2FF', color: '#4338CA', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', marginRight: '8px' }}>
+              {expandedId === u.id ? 'Hide Docs' : 'View Docs'}
+            </button>
+            <button onClick={() => onVerify(u.id)} style={{ padding: '8px 18px', background: '#3CBEA0', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+              Verify
+            </button>
           </div>
-          <button onClick={() => onVerify(u.id)} style={{ padding: '8px 18px', background: '#3CBEA0', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-            ✅ Verify
-          </button>
+          {expandedId === u.id && (
+            <div style={{ padding: '14px', borderTop: '1px solid #F3F4F6', background: '#F9FAFB' }}>
+              {docUrls[u.id] && Object.keys(docUrls[u.id]).length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                  {Object.entries(docUrls[u.id]).map(([docType, url]: [string, any]) => (
+                    <a key={docType} href={url} target='_blank' rel='noreferrer'
+                      style={{ padding: '8px 16px', background: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: '12px', fontWeight: '600', color: '#0B1F3A', textDecoration: 'none' }}>
+                      📄 {docType.replace(/_/g, ' ').toUpperCase()}
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: '13px', color: '#9CA3AF', margin: 0 }}>No documents uploaded yet.</p>
+              )}
+            </div>
+          )}
         </div>
       ))}
     </div>
