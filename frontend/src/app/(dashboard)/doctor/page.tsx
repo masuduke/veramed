@@ -398,17 +398,47 @@ export default function DoctorDashboard() {
                 <p>No reviewed cases yet.</p>
               </div>
             ) : history.map((c: any) => (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', border: '1px solid #F3F4F6', borderRadius: '12px', marginBottom: '8px', background: '#FAFAFA' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: c.status === 'approved' ? '#DCFCE7' : '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                  {c.status === 'approved' ? '✅' : '❌'}
+              <div key={c.id} style={{ border: '1px solid #F3F4F6', borderRadius: '12px', marginBottom: '8px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', background: '#FAFAFA', cursor: 'pointer' }}
+                  onClick={() => setSelectedCase(selectedCase?.id === c.id ? null : c)}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: c.status === 'approved' ? '#DCFCE7' : '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
+                    {c.status === 'approved' ? 'OK' : 'X'}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: '0 0 2px' }}>{c.patient?.user?.name || 'Patient'}</p>
+                    <p style={{ fontSize: '11px', color: '#9CA3AF', margin: 0 }}>{new Date(c.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                  <span style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '20px', fontWeight: '600', background: c.status === 'approved' ? '#DCFCE7' : '#FEE2E2', color: c.status === 'approved' ? '#15803D' : '#DC2626' }}>
+                    {c.status === 'approved' ? 'Approved' : 'Rejected'}
+                  </span>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: '0 0 2px' }}>{c.patient?.user?.name || 'Patient'}</p>
-                  <p style={{ fontSize: '11px', color: '#9CA3AF', margin: 0 }}>{new Date(c.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                </div>
-                <span style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '20px', fontWeight: '600', background: c.status === 'approved' ? '#DCFCE7' : '#FEE2E2', color: c.status === 'approved' ? '#15803D' : '#DC2626' }}>
-                  {c.status === 'approved' ? 'Approved' : 'Rejected'}
-                </span>
+                {selectedCase?.id === c.id && (
+                  <div style={{ padding: '16px', borderTop: '1px solid #F3F4F6', background: 'white' }}>
+                    {c.aiAnalysis?.aiSummary && (
+                      <div style={{ padding: '12px 14px', background: '#EFF6FF', borderRadius: '12px', border: '1px solid #BFDBFE', marginBottom: '12px' }}>
+                        <p style={{ fontSize: '11px', fontWeight: '700', color: '#1D4ED8', textTransform: 'uppercase', marginBottom: '6px' }}>AI Summary</p>
+                        <p style={{ fontSize: '13px', color: '#1E3A5F', lineHeight: 1.6, margin: 0 }}>{c.aiAnalysis.aiSummary}</p>
+                      </div>
+                    )}
+                    {c.myMedications?.length > 0 && (
+                      <div>
+                        <p style={{ fontSize: '11px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '8px' }}>Medications</p>
+                        {c.myMedications.map((m: any, i: number) => (
+                          <div key={i} style={{ padding: '10px 12px', background: '#F9FAFB', borderRadius: '8px', border: '1px solid #E5E7EB', marginBottom: '6px' }}>
+                            <p style={{ fontSize: '13px', fontWeight: '600', color: '#0B1F3A', margin: '0 0 2px' }}>{m.name}</p>
+                            <p style={{ fontSize: '11px', color: '#6B7280', margin: 0 }}>{m.dosageGuidance} - {m.frequency} - {m.duration}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {c.aiAnalysis?.warnings?.length > 0 && (
+                      <div style={{ padding: '10px 12px', background: '#FFFBEB', borderRadius: '10px', border: '1px solid #FCD34D', marginTop: '10px' }}>
+                        <p style={{ fontSize: '11px', fontWeight: '700', color: '#D97706', marginBottom: '4px' }}>Warnings</p>
+                        {c.aiAnalysis.warnings.map((w: string, i: number) => (<p key={i} style={{ fontSize: '12px', color: '#92400E', margin: '2px 0' }}>{w}</p>))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
