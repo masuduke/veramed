@@ -13,7 +13,7 @@ const REQUIRED_DOCS = [
 export default function DoctorVerificationPage() {
   const router = useRouter();
   const { accessToken } = useAuthStore();
-  const [uploads, setUploads] = useState({});
+  const [uploads, setUploads] = useState<Record<string, File>>({});
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState('');
@@ -26,7 +26,7 @@ export default function DoctorVerificationPage() {
       if (r.data?.rejectionReason) setRejectionReason(r.data.rejectionReason);
     }).catch(() => {});
   }, []);
-  const handleFileSelect = (key, file) => {
+  const handleFileSelect = (key: string, file: File | null) => {
     if (!file) return;
     const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) { setError('Invalid file type. Please upload PDF, JPG, PNG or WEBP.'); return; }
