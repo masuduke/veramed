@@ -54,7 +54,7 @@ export default function DoctorVerificationPage() {
       setSubmitted(true);
       setVerificationStatus('pending');
       setRejectionReason('');
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message || 'Upload failed. Please try again.');
     } finally { setUploading(false); }
   };
