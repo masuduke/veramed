@@ -210,6 +210,7 @@ model AiAnalysis {
   suggestedMedication Json     @map("suggested_medication")
   confidenceScore     Decimal? @map("confidence_score") @db.Decimal(4, 3)
   warnings            String[]
+  urgencyLevel        String?  @map("urgency_level")
   rawResponse         Json?    @map("raw_response")
   processingTimeMs    Int?     @map("processing_time_ms")
   reviewedByDoctor    Boolean  @default(false) @map("reviewed_by_doctor")
