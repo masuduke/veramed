@@ -27,10 +27,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace('/login');
       return;
     }
-    if (currentUser.role === 'doctor' && currentUser.status !== 'verified') {
-      if (!pathname.includes('/doctor/verification')) {
-        router.replace('/doctor/verification');
-      }
+    if (currentUser.role === 'doctor') {
+      // Always fetch fresh status from server
+      fetch('https://veramed.onrender.com/api/auth/me', {
+        headers: { Authorization: 'Bearer ' + useAuthStore.getState().accessToken },
+      }).then(r => r.json()).then(me => {
+        if (me.status !== 'verified') {
+          if (!pathname.includes('/doctor/verification')) {
+            router.replace('/doctor/verification');
+          }
+        }
+      }).catch(() => {
+        if (currentUser.status !== 'verified') {
+          if (!pathname.includes('/doctor/verification')) {
+            router.replace('/doctor/verification');
+          }
+        }
+      });
     }
   }, [router, pathname]);
 
