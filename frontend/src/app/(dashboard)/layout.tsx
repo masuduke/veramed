@@ -7,7 +7,7 @@ import { useAuthStore } from '@/lib/auth-store';
 const NAV_CONFIG: Record<string, Array<{label: string; href: string}>> = {
   patient:  [{ label: 'Dashboard', href: '/patient' }, { label: 'Upload Report', href: '/patient/upload' }, { label: 'My Reports', href: '/patient/reports' }, { label: 'Prescriptions', href: '/patient/prescriptions' }, { label: 'My Orders', href: '/patient/orders' },
     { label: 'Settings', href: '/patient/settings' }],
-  doctor:   [{ label: 'Dashboard', href: '/doctor' }, { label: 'Pending Cases', href: '/doctor/cases' }, { label: 'History', href: '/doctor/history' }, { label: 'Upload Documents', href: '/doctor/verification' }],
+  doctor:   [{ label: 'Dashboard', href: '/doctor' }, { label: 'Upload Documents', href: '/doctor/verification' }],
   pharmacy: [{ label: 'Overview', href: '/pharmacy' }, { label: 'Inventory', href: '/pharmacy/inventory' }, { label: 'Orders', href: '/pharmacy/orders' }],
   driver:   [{ label: 'Dashboard', href: '/driver' }, { label: 'Deliveries', href: '/driver/deliveries' }],
   admin:    [{ label: 'Dashboard', href: '/admin' }, { label: 'Users', href: '/admin/users' },
