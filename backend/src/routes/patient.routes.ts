@@ -122,9 +122,27 @@ patientRouter.post('/upload-report',
             aiAnalysisId: aiAnalysis.id,
           } as any,
         });
-        if (assignedDoctor) {
+        // Fallback 1: if no specialty match, assign to any available verified doctor
+        let finalDoctor = assignedDoctor;
+        if (!finalDoctor) {
+          finalDoctor = await db.doctor.findFirst({
+            where: { available: true, user: { status: 'verified' } },
+            orderBy: { lastCaseAssignedAt: 'asc' },
+          });
+          if (finalDoctor) console.log('No specialty match - assigned to fallback doctor: ' + finalDoctor.id);
+        }
+
+        // Fallback 2: if still no doctor, log as unassigned for admin
+        if (!finalDoctor) {
+          console.log('WARNING: No available doctor for prescription ' + prescription.id + ' - needs admin assignment');
+        } else {
+          // Update prescription with assigned doctor
+          await db.prescription.update({
+            where: { id: prescription.id },
+            data: { doctorId: finalDoctor.id } as any,
+          });
           await db.doctor.update({
-            where: { id: assignedDoctor.id },
+            where: { id: finalDoctor.id },
             data: { lastCaseAssignedAt: new Date() } as any,
           });
         }
