@@ -86,9 +86,28 @@ patientRouter.post('/upload-report',
         });
         // Find longest idle doctor for primary specialty
         const primarySpecialty = analysis.requiredSpecialties[0] || 'general_medicine';
+        // Find longest idle doctor - check both formats of specialty name
+        const specialtyVariants: Record<string, string[]> = {
+          general_medicine: ['general_medicine', 'General Practice', 'General Medicine', 'general medicine', 'GP'],
+          cardiology: ['cardiology', 'Cardiology'],
+          gynaecology: ['gynaecology', 'Gynaecology'],
+          dermatology: ['dermatology', 'Dermatology'],
+          neurology: ['neurology', 'Neurology'],
+          paediatrics: ['paediatrics', 'Paediatrics'],
+          orthopaedics: ['orthopaedics', 'Orthopaedics'],
+          psychiatry: ['psychiatry', 'Psychiatry'],
+          oncology: ['oncology', 'Oncology'],
+          emergency_medicine: ['emergency_medicine', 'Emergency Medicine'],
+          endocrinology: ['endocrinology', 'Endocrinology'],
+          gastroenterology: ['gastroenterology', 'Gastroenterology'],
+          pulmonology: ['pulmonology', 'Pulmonology'],
+          nephrology: ['nephrology', 'Nephrology'],
+          rheumatology: ['rheumatology', 'Rheumatology'],
+        };
+        const variants = specialtyVariants[primarySpecialty] || [primarySpecialty];
         const assignedDoctor = await db.doctor.findFirst({
           where: {
-            specialization: primarySpecialty,
+            specialization: { in: variants },
             available: true,
             user: { status: 'verified' },
           },
