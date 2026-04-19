@@ -135,7 +135,7 @@ adminRouter.get('/unassigned-cases', asyncHandler(async (req, res) => {
     where: { doctorId: null, status: 'pending_review' },
     include: {
       patient: { include: { user: { select: { name: true, email: true } } } },
-      aiAnalysis: { select: { aiSummary: true, requiredSpecialties: true } } as any,
+      aiAnalysis: { select: { aiSummary: true } } as any,
     },
     orderBy: { createdAt: 'asc' },
   });
