@@ -29,20 +29,21 @@ export const SPECIALTIES = [
 ];
 
 export const SYMPTOM_SPECIALTY_MAP: Record<string, string[]> = {
-  cardiology:       ['chest pain','heart','cardiac','palpitation','hypertension','blood pressure','arrhythmia','ecg','cholesterol','angina'],
-  neurology:        ['headache','migraine','seizure','epilepsy','stroke','numbness','tremor','brain'],
-  gynaecology:      ['pregnancy','menstrual','ovarian','uterine','cervical','vaginal','contraception','pcos','menopause'],
-  dermatology:      ['rash','skin','acne','eczema','psoriasis','dermatitis','lesion'],
-  paediatrics:      ['child','infant','baby','toddler','vaccination','newborn'],
-  orthopaedics:     ['fracture','bone','joint','arthritis','spine','back pain','knee','hip'],
-  psychiatry:       ['depression','anxiety','bipolar','schizophrenia','mental','ocd','ptsd','insomnia'],
-  oncology:         ['cancer','tumor','tumour','chemotherapy','malignant','biopsy','lymphoma'],
-  endocrinology:    ['diabetes','thyroid','insulin','hormone','adrenal','cortisol'],
-  gastroenterology: ['stomach','bowel','intestine','liver','gallbladder','ibs','crohn','gastritis','ulcer'],
-  pulmonology:      ['asthma','copd','breathing','lung','respiratory','bronchitis','pneumonia'],
-  nephrology:       ['kidney','renal','dialysis','urinary','creatinine'],
-  rheumatology:     ['lupus','rheumatoid','gout','fibromyalgia','autoimmune'],
-  general_medicine: ['fever','cold','flu','fatigue','cough','weight','vitamin','infection'],
+  cardiology: ['chest pain','heart attack','cardiac','palpitation','hypertension','high blood pressure','arrhythmia','ecg','cholesterol','angina','heart failure','irregular heartbeat','shortness of breath','chest tightness','cardiovascular','coronary','atrial fibrillation','bradycardia','tachycardia','heart murmur'],
+  neurology: ['headache','migraine','seizure','epilepsy','stroke','numbness','tremor','brain','dizziness','vertigo','fainting','memory loss','confusion','paralysis','nerve pain','neuropathy','multiple sclerosis','parkinsons','dementia','concussion','tingling'],
+  gynaecology: ['pregnancy','menstrual','ovarian','uterine','cervical','vaginal','contraception','pcos','menopause','period pain','irregular periods','fertility','endometriosis','fibroids','breast lump','vaginal discharge','pelvic pain','smear test','sti','sexual health'],
+  dermatology: ['rash','skin','acne','eczema','psoriasis','dermatitis','lesion','mole','wart','hives','urticaria','itchy skin','dry skin','skin infection','ringworm','athlete foot','nail fungus','hair loss','alopecia','sebaceous cyst','skin cancer','wound healing'],
+  paediatrics: ['child','infant','baby','toddler','vaccination','newborn','growth','developmental','childhood','pediatric','kids','teenager','adolescent','school age','nappy rash','teething','croup','hand foot mouth'],
+  orthopaedics: ['fracture','bone','joint pain','arthritis','spine','back pain','knee pain','hip pain','shoulder pain','ankle','foot pain','muscle strain','sprain','tendon','ligament','carpal tunnel','sciatica','slipped disc','scoliosis','osteoporosis','sports injury'],
+  psychiatry: ['depression','anxiety','bipolar','schizophrenia','mental health','ocd','ptsd','insomnia','panic attack','phobia','eating disorder','self harm','suicidal','addiction','stress','burnout','mood swings','hallucination','psychosis','social anxiety','trauma'],
+  oncology: ['cancer','tumor','tumour','chemotherapy','malignant','biopsy','lymphoma','leukaemia','melanoma','carcinoma','mass','growth','abnormal cells','radiotherapy','oncology','metastasis','lymph node','blood cancer'],
+  endocrinology: ['diabetes','thyroid','insulin','hormone','adrenal','cortisol','hyperthyroid','hypothyroid','weight gain','weight loss','polydipsia','polyuria','excessive thirst','blood sugar','hba1c','metabolic','pituitary','growth hormone','testosterone','oestrogen'],
+  gastroenterology: ['stomach','bowel','intestine','liver','gallbladder','ibs','crohn','gastritis','ulcer','heartburn','acid reflux','indigestion','constipation','diarrhoea','diarrhea','bloating','nausea','vomiting','rectal bleeding','haemorrhoids','coeliac','colitis','hepatitis','jaundice'],
+  pulmonology: ['asthma','copd','breathing difficulty','lung','respiratory','bronchitis','pneumonia','persistent cough','wheezing','sleep apnea','tuberculosis','pleural','pulmonary','oxygen','inhaler','breathlessness','chest infection','emphysema'],
+  nephrology: ['kidney','renal','dialysis','urinary','creatinine','kidney stones','uti','urinary tract infection','blood in urine','protein in urine','frequent urination','painful urination','kidney failure','glomerulonephritis','nephrotic'],
+  rheumatology: ['lupus','rheumatoid','gout','fibromyalgia','autoimmune','joint swelling','stiffness','vasculitis','sjogren','scleroderma','polymyalgia','ankylosing spondylitis','reactive arthritis','raynaud'],
+  emergency_medicine: ['emergency','trauma','unconscious','unresponsive','severe bleeding','overdose','poisoning','severe allergic reaction','anaphylaxis','stroke symptoms','heart attack symptoms','severe chest pain','difficulty breathing','seizure now','major injury','accident'],
+  general_medicine: ['fever','cold','flu','fatigue','cough','infection','allergy','allergic','hay fever','hayfever','pollen','runny nose','watery eyes','sneezing','itchy eyes','sore throat','earache','ear pain','blocked nose','tired','weakness','loss of appetite','general checkup','prescription renewal','vitamin deficiency','anaemia','dehydration','food poisoning','insect bite','minor cut','bruise','swollen glands','tonsillitis','sinusitis','cold sore','mouth ulcer','bad breath','general pain','malaise','body ache','night sweats','chills','loss of smell','loss of taste'],
 };
 
 // GET /doctor/profile
