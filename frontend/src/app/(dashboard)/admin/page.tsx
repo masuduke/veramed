@@ -47,6 +47,12 @@ export default function AdminDashboard() {
     enabled: activeTab === 'audit',
   });
 
+  const { data: unassignedCases } = useQuery({
+    queryKey: ['admin-unassigned'],
+    queryFn: () => api.get('/admin/unassigned-cases').then(r => r.data).catch(() => []),
+    refetchInterval: 30000,
+  });
+
   const { data: refunds } = useQuery({
     queryKey: ['admin-refunds'],
     queryFn: () => api.get('/admin/refunds').then(r => r.data).catch(() => []),
@@ -247,6 +253,7 @@ export default function AdminDashboard() {
                 { l: 'Wallet top-up requests', v: pendingWallets.length, tab: 'wallets', urgent: pendingWallets.length > 0 },
                 { l: 'Withdrawal requests', v: pendingWithdrawals.length, tab: 'withdrawals', urgent: pendingWithdrawals.length > 0 },
                 { l: 'Unverified users', v: (users || []).filter((u: any) => !u.emailVerified && (u.role === 'doctor' || u.role === 'pharmacy')).length, tab: 'users', urgent: false },
+                { l: 'Unassigned prescriptions', v: (unassignedCases || []).length, tab: 'verifications', urgent: (unassignedCases || []).length > 0 },
               ].map(a => (
                 <div key={a.l} onClick={() => setActiveTab(a.tab as any)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderRadius: '10px', marginBottom: '8px', background: a.urgent && a.v > 0 ? '#FEF3C7' : '#F9FAFB', cursor: 'pointer', border: a.urgent && a.v > 0 ? '1px solid #FCD34D' : '1px solid #F3F4F6' }}>
                   <span style={{ fontSize: '13px', color: '#374151' }}>{a.l}</span>
