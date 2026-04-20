@@ -431,6 +431,45 @@ router.get('/patient/:patientId/history', asyncHandler(async (req: any, res: any
   });
 }));
 
+// POST /doctor/prescriptions/:id/request-tests
+router.post('/prescriptions/:id/request-tests', asyncHandler(async (req: any, res: any) => {
+  const { requestedTests, doctorNote } = req.body;
+  if (!requestedTests || !Array.isArray(requestedTests) || requestedTests.length === 0) {
+    throw new AppError('Please select at least one test', 400);
+  }
+  const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.sub } });
+  if (!doctor) throw new AppError('Doctor not found', 404);
+
+  await (prisma as any).testRequest.create({
+    data: {
+      prescriptionId: req.params.id,
+      doctorId: doctor.id,
+      requestedTests,
+      doctorNote,
+      status: 'pending',
+    },
+  });
+
+  await auditLog({
+    userId: req.user.sub,
+    action: 'TEST_REQUESTED',
+    resourceType: 'prescription',
+    resourceId: req.params.id,
+    newValue: { requestedTests, doctorNote },
+  });
+
+  res.json({ success: true, message: 'Test request sent to patient' });
+}));
+
+// GET /doctor/patient/:patientId/test-requests
+router.get('/prescription/:id/test-requests', asyncHandler(async (req: any, res: any) => {
+  const requests = await (prisma as any).testRequest.findMany({
+    where: { prescriptionId: req.params.id },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json(requests);
+}));
+
 // GET /doctor/escalations
 router.get('/escalations', asyncHandler(async (req: any, res: any) => {
   try {

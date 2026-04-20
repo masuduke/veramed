@@ -264,6 +264,92 @@ patientRouter.get('/prescriptions', asyncHandler(async (req, res) => {
   res.json(safeData);
 }));
 
+// GET /api/patient/test-requests
+patientRouter.get('/test-requests', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });
+  if (!patient) throw new AppError('Patient not found', 404);
+  const prescriptions = await prisma.prescription.findMany({
+    where: { patientId: patient.id },
+    select: { id: true },
+  });
+  const prescriptionIds = prescriptions.map((p: any) => p.id);
+  const testRequests = await (prisma as any).testRequest.findMany({
+    where: { prescriptionId: { in: prescriptionIds } },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json(testRequests);
+}));
+
+// POST /api/patient/test-requests/:id/upload
+patientRouter.post('/test-requests/:id/upload',
+  upload.single('report'),
+  asyncHandler(async (req, res) => {
+    const { prisma } = await import('../server');
+    const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });
+    if (!patient) throw new AppError('Patient not found', 404);
+
+    const testRequest = await (prisma as any).testRequest.findUnique({
+      where: { id: req.params.id },
+      include: { prescription: true },
+    });
+    if (!testRequest) throw new AppError('Test request not found', 404);
+    if (testRequest.prescription.patientId !== patient.id) throw new AppError('Access denied', 403);
+
+    const s3File = req.file as any;
+    const report = await prisma.report.create({
+      data: {
+        patientId: patient.id,
+        fileUrl: s3File?.key || '',
+        fileName: req.file?.originalname || '',
+        fileType: req.file?.mimetype || '',
+        fileSizeBytes: req.file?.size || 0,
+        description: req.body.description || 'Test results upload',
+        symptoms: [],
+      },
+    });
+
+    await (prisma as any).testRequest.update({
+      where: { id: req.params.id },
+      data: { status: 'uploaded', patientUploadedAt: new Date() },
+    });
+
+    // Re-trigger AI analysis with test results
+    const dob = (patient as any).dateOfBirth;
+    const ageText = dob ? 'Patient age: ' + Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365)) + ' years old.' : '';
+    const patientContext = ageText;
+    const testContext = 'These are follow-up test results. Original prescription ID: ' + testRequest.prescriptionId;
+
+    analyzeReport(req.body.description || 'Test results', [], undefined, patientContext + ' ' + testContext).then(async (analysis) => {
+      const { prisma: db } = await import('../server');
+      try {
+        const aiAnalysis = await (db as any).aiAnalysis.create({
+          data: {
+            reportId: report.id,
+            modelVersion: process.env.AI_MODEL || 'claude-sonnet-4-20250514',
+            aiSummary: analysis.aiSummary,
+            suggestedDiagnosis: analysis.suggestedDiagnosis,
+            suggestedMedication: analysis.suggestedMedication as any,
+            confidenceScore: analysis.confidenceScore,
+            warnings: analysis.warnings,
+            urgencyLevel: analysis.urgencyLevel,
+            recommendedTests: analysis.recommendedTests as any,
+            lifestyleAdvice: analysis.lifestyleAdvice,
+            dietaryAdvice: analysis.dietaryAdvice,
+            whenToSeekEmergency: analysis.whenToSeekEmergency,
+          },
+        });
+        await db.report.update({ where: { id: report.id }, data: { processed: true } as any });
+        console.log('Test result AI analysis saved for report ' + report.id);
+      } catch (saveErr) {
+        console.error('Failed to save test result AI analysis:', saveErr);
+      }
+    }).catch(console.error);
+
+    res.json({ success: true, reportId: report.id, message: 'Test results uploaded successfully' });
+  })
+);
+
 // GET /api/patient/prescriptions/:id/pharmacies
 patientRouter.get('/prescriptions/:id/pharmacies', asyncHandler(async (req, res) => {
   res.json([]);
