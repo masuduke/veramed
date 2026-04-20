@@ -7,7 +7,7 @@ export const profileRouter = Router();
 
 profileRouter.post('/patient/update-address', authenticate, authorize('patient'), asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
-  const { address, phone } = req.body;
+  const { address, phone, dateOfBirth, gender, allergies } = req.body;
   const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });
   if (!patient) return res.status(404).json({ error: 'Patient not found' });
   const coords = await geocodeAddress(address);

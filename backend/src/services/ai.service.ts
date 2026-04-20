@@ -42,7 +42,8 @@ export interface RecommendedTest {
 export async function analyzeReport(
   description: string,
   symptoms: string[],
-  fileText?: string
+  fileText?: string,
+  patientContext?: string
 ): Promise<AIAnalysisResult> {
 
   const SAFETY_SYSTEM_PROMPT = `You are a clinical decision support AI for VeraMed.
@@ -62,6 +63,7 @@ endocrinology, gastroenterology, pulmonology, nephrology, rheumatology`;
 
   const prompt = `Analyse this patient case thoroughly and return a comprehensive JSON object.
 
+PATIENT INFORMATION: 
 PATIENT DESCRIPTION: ${description}
 SYMPTOMS: ${symptoms.join(', ') || 'None specified'}
 ${fileText ? `REPORT/TEST RESULTS: ${fileText.slice(0, 3000)}` : ''}

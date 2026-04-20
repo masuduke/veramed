@@ -64,8 +64,15 @@ patientRouter.post('/upload-report',
       },
     });
 
+    // Calculate patient context
+    const dob = (patient as any).dateOfBirth;
+    const ageText = dob ? 'Patient age: ' + Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365)) + ' years old.' : '';
+    const gender = (patient as any).gender ? 'Gender: ' + (patient as any).gender + '.' : '';
+    const knownAllergies = (patient as any).allergies?.length > 0 ? 'Known allergies: ' + (patient as any).allergies.join(', ') + '.' : '';
+    const patientContext = [ageText, gender, knownAllergies].filter(Boolean).join(' ');
+
     // Trigger AI analysis and save results
-    analyzeReport(report.description || '', report.symptoms || []).then(async (analysis) => {
+    analyzeReport(report.description || '', report.symptoms || [], undefined, patientContext).then(async (analysis) => {
       const { prisma: db } = await import('../server');
       try {
         const aiAnalysis = await (db as any).aiAnalysis.create({
