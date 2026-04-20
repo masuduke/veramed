@@ -34,9 +34,23 @@ export default function DoctorDashboard() {
   const [partialNote, setPartialNote] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [mySpecialty, setMySpecialty] = useState('');
+
+  // Fetch patient history when case is selected
+  useEffect(() => {
+    if (!selectedCase) { setPatientHistory(null); return; }
+    const patientId = selectedCase.patient?.id;
+    if (!patientId) return;
+    setLoadingHistory(true);
+    api.get('/doctor/patient/' + patientId + '/history')
+      .then(r => setPatientHistory(r.data))
+      .catch(() => setPatientHistory(null))
+      .finally(() => setLoadingHistory(false));
+  }, [selectedCase?.id]);
   const [savingSpecialty, setSavingSpecialty] = useState(false);
   const [specialtySaved, setSpecialtySaved] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending'|'history'|'profile'|'verification'>('pending');
+  const [patientHistory, setPatientHistory] = useState<any>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const { data: cases, isLoading } = useQuery({
     queryKey: ['pending-cases'],
@@ -410,7 +424,45 @@ export default function DoctorDashboard() {
 
                   {/* Doctor notes */}
                   <div style={{ marginBottom: '16px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>My Clinical Notes</label>
+                    
+                  {/* Patient History */}
+                  {loadingHistory && <div style={{ padding: '10px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>Loading patient history...</div>}
+                  {patientHistory && (
+                    <div style={{ marginBottom: '12px', padding: '12px', background: '#F9FAFB', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                      <p style={{ fontSize: '11px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', marginBottom: '8px' }}>Patient Medical History</p>
+                      {patientHistory.patient?.allergies?.length > 0 && (
+                        <div style={{ padding: '6px 10px', background: '#FEF2F2', borderRadius: '8px', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#DC2626' }}>Allergies: {patientHistory.patient.allergies.join(', ')}</span>
+                        </div>
+                      )}
+                      {patientHistory.previousPrescriptions?.length > 0 && (
+                        <div style={{ marginBottom: '8px' }}>
+                          <p style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Previous Cases: {patientHistory.previousPrescriptions.length}</p>
+                          {patientHistory.previousPrescriptions.slice(0,3).map((rx: any, i: number) => (
+                            <div key={i} style={{ padding: '6px 10px', background: '#F0FDF4', borderRadius: '8px', marginBottom: '4px', border: '1px solid #BBF7D0' }}>
+                              <p style={{ fontSize: '11px', fontWeight: '600', color: '#15803D', margin: '0 0 2px' }}>{new Date(rx.createdAt).toLocaleDateString('en-GB')}</p>
+                              {rx.aiAnalysis?.aiSummary && <p style={{ fontSize: '11px', color: '#374151', margin: 0 }}>{rx.aiAnalysis.aiSummary.slice(0, 100)}...</p>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {patientHistory.previousReports?.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Previous Reports: {patientHistory.previousReports.length}</p>
+                          {patientHistory.previousReports.slice(0,3).map((r: any, i: number) => (
+                            <div key={i} style={{ padding: '6px 10px', background: '#EFF6FF', borderRadius: '8px', marginBottom: '4px', border: '1px solid #BFDBFE' }}>
+                              <p style={{ fontSize: '11px', color: '#1D4ED8', margin: '0 0 1px' }}>{r.fileName || 'Report'}</p>
+                              <p style={{ fontSize: '11px', color: '#374151', margin: 0 }}>{r.description?.slice(0, 80)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!patientHistory.previousPrescriptions?.length && !patientHistory.previousReports?.length && (
+                        <p style={{ fontSize: '12px', color: '#9CA3AF' }}>No previous history on VeraMed.</p>
+                      )}
+                    </div>
+                  )}
+                  <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>My Clinical Notes</label>
                     <textarea value={doctorNotes} onChange={e => setDoctorNotes(e.target.value)} rows={3}
                       style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px', fontSize: '13px', resize: 'none', outline: 'none', lineHeight: 1.5 }}
                       placeholder="Add notes for patient, pharmacy or other specialists..." />

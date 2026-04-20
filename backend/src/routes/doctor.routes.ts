@@ -333,6 +333,104 @@ router.post('/prescriptions/:id/reject', asyncHandler(async (req: any, res: any)
   res.json({ success: true, message: 'Prescription rejected' });
 }));
 
+// GET /doctor/patient/:patientId/history
+router.get('/patient/:patientId/history', asyncHandler(async (req: any, res: any) => {
+  const { patientId } = req.params;
+  const doctorUserId = req.user.sub;
+
+  // Verify doctor has an active pending case for this patient
+  const doctor = await prisma.doctor.findUnique({ where: { userId: doctorUserId } });
+  if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
+
+  const activePendingCase = await prisma.prescription.findFirst({
+    where: {
+      patientId,
+      doctorId: doctor.id,
+      status: 'pending_review',
+    },
+  });
+
+  if (!activePendingCase) {
+    return res.status(403).json({ error: 'Access denied - no active pending case for this patient' });
+  }
+
+  const mySpecialty = (doctor as any).specialization || 'general_medicine';
+
+  // Sensitive specialties - only visible to matching specialty
+  const SENSITIVE_SPECIALTIES = ['psychiatry', 'gynaecology', 'oncology'];
+
+  // Get patient profile
+  const patient = await prisma.patient.findUnique({
+    where: { id: patientId },
+    select: {
+      dateOfBirth: true,
+      gender: true,
+      bloodType: true,
+      allergies: true,
+      medicalHistory: true,
+    } as any,
+  });
+
+  // Get previous approved prescriptions
+  const previousPrescriptions = await prisma.prescription.findMany({
+    where: {
+      patientId,
+      status: 'approved',
+      id: { not: activePendingCase.id },
+    },
+    include: {
+      aiAnalysis: {
+        select: {
+          aiSummary: true,
+          suggestedDiagnosis: true,
+          warnings: true,
+          urgencyLevel: true,
+        } as any,
+      },
+      approvals: {
+        select: {
+          specialty: true,
+          status: true,
+          notes: true,
+          decidedAt: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  });
+
+  // Filter sensitive specialty records
+  const filteredPrescriptions = previousPrescriptions.map((rx: any) => {
+    const filteredApprovals = rx.approvals.filter((a: any) => {
+      if (SENSITIVE_SPECIALTIES.includes(a.specialty) && a.specialty !== mySpecialty) return false;
+      return true;
+    });
+    return { ...rx, approvals: filteredApprovals };
+  }).filter((rx: any) => rx.approvals.length > 0 || !rx.approvals.some((a: any) => SENSITIVE_SPECIALTIES.includes(a.specialty)));
+
+  // Get previous reports
+  const previousReports = await prisma.report.findMany({
+    where: { patientId },
+    select: {
+      id: true,
+      fileName: true,
+      description: true,
+      symptoms: true,
+      createdAt: true,
+      processed: true,
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  });
+
+  res.json({
+    patient,
+    previousPrescriptions: filteredPrescriptions,
+    previousReports,
+  });
+}));
+
 // GET /doctor/escalations
 router.get('/escalations', asyncHandler(async (req: any, res: any) => {
   try {
