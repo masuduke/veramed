@@ -145,6 +145,10 @@ router.get('/pending-cases', asyncHandler(async (req: any, res: any) => {
           suggestedMedication: approval.medications,
           confidenceScore: rx.aiAnalysis.confidenceScore,
           warnings: rx.aiAnalysis.warnings || [],
+          recommendedTests: rx.aiAnalysis.recommendedTests || [],
+          lifestyleAdvice: rx.aiAnalysis.lifestyleAdvice || [],
+          dietaryAdvice: rx.aiAnalysis.dietaryAdvice || [],
+          whenToSeekEmergency: rx.aiAnalysis.whenToSeekEmergency || [],
           report: { description: rx.aiAnalysis.aiSummary },
         } : null,
         otherApprovals: (rx.approvals || [])
