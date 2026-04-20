@@ -12,7 +12,7 @@ profileRouter.post('/patient/update-address', authenticate, authorize('patient')
   if (!patient) return res.status(404).json({ error: 'Patient not found' });
   const coords = await geocodeAddress(address);
   await prisma.$executeRawUnsafe(
-    'UPDATE patients SET address = $1, lat = $2, lng = $3 WHERE user_id = $4',
+    'UPDATE patients SET address = $1::jsonb, lat = $2, lng = $3 WHERE user_id = $4',
     JSON.stringify(address), coords?.lat || null, coords?.lng || null, req.user!.sub
   );
   if (phone) await prisma.user.update({ where: { id: req.user!.sub }, data: { phone } });
