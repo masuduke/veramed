@@ -89,6 +89,7 @@ model Doctor {
   user                       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   prescriptions              Prescription[]
 
+  testRequests   TestRequest[]
   @@map("doctors")
 }
 
@@ -189,6 +190,7 @@ model Prescription {
   doctor                Doctor?                  @relation(fields: [doctorId], references: [id], onDelete: Restrict)
   patient               Patient                  @relation(fields: [patientId], references: [id])
 
+  testRequests          TestRequest[]
   @@map("prescriptions")
 }
 
@@ -416,4 +418,20 @@ enum PaymentStatus {
   succeeded
   failed
   refunded
+}
+
+model TestRequest {
+  id               String    @id @default(uuid())
+  prescriptionId   String    @map("prescription_id")
+  doctorId         String    @map("doctor_id")
+  requestedTests   Json      @map("requested_tests")
+  doctorNote       String?   @map("doctor_note")
+  status           String    @default("pending")
+  patientUploadedAt DateTime? @map("patient_uploaded_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+  doctor       Doctor       @relation(fields: [doctorId], references: [id])
+
+  @@map("test_requests")
 }
