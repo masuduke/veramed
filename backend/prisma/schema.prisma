@@ -158,10 +158,10 @@ model AiAnalysis {
   processingTimeMs       Int?          @map("processing_time_ms")
   reviewedByDoctor       Boolean       @default(false) @map("reviewed_by_doctor")
   createdAt              DateTime      @default(now()) @map("created_at")
-  recommended_tests      Json?
-  lifestyle_advice       String[]
-  dietary_advice         String[]
-  when_to_seek_emergency String[]
+  recommendedTests      Json?    @map("recommended_tests")
+  lifestyleAdvice       String[] @map("lifestyle_advice")
+  dietaryAdvice         String[] @map("dietary_advice")
+  whenToSeekEmergency   String[] @map("when_to_seek_emergency")
   report                 Report        @relation(fields: [reportId], references: [id], onDelete: Cascade)
   prescription           Prescription?
 
