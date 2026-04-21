@@ -315,11 +315,19 @@ patientRouter.post('/test-requests/:id/upload',
       data: { status: 'uploaded', patientUploadedAt: new Date() },
     });
 
-    // Update prescription status back to pending_review so same doctor sees it
+    // Update prescription and approval status back to pending so same doctor sees it
     const { prisma: db2 } = await import('../server');
     await db2.prescription.update({
       where: { id: testRequest.prescriptionId },
       data: { status: 'pending_review' } as any,
+    });
+    // Reset prescription approvals to pending so doctor sees case again
+    await (db2 as any).prescriptionApproval.updateMany({
+      where: { 
+        prescriptionId: testRequest.prescriptionId,
+        doctorId: testRequest.doctorId,
+      },
+      data: { status: 'pending', decidedAt: null },
     });
 
     console.log('Test results uploaded for prescription ' + testRequest.prescriptionId + ' - doctor notified');
