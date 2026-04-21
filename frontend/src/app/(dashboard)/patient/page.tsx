@@ -163,6 +163,7 @@ export default function PatientDashboard() {
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+  const [testRequests, setTestRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -244,6 +245,30 @@ export default function PatientDashboard() {
           <StatCard label="Approved Rx" value={approved} accent="#10B981" />
           <StatCard label="Total Orders" value={orders.length} accent="#3B82F6" />
         </div>
+
+        {/* Test Requests Alert */}
+        {testRequests.length > 0 && (
+          <div style={{ background: '#EFF6FF', borderRadius: '16px', padding: '20px', marginBottom: '20px', border: '1px solid #BFDBFE' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '20px' }}>🧪</span>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1D4ED8', margin: 0 }}>Your doctor has requested diagnostic tests</h3>
+            </div>
+            {testRequests.map((req: any) => (
+              <div key={req.id} style={{ background: 'white', borderRadius: '12px', padding: '16px', marginBottom: '10px', border: '1px solid #BFDBFE' }}>
+                <p style={{ fontSize: '13px', fontWeight: '600', color: '#0F172A', marginBottom: '8px' }}>Tests requested:</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                  {(req.requestedTests || []).map((test: string, i: number) => (
+                    <span key={i} style={{ fontSize: '11px', background: '#DBEAFE', color: '#1D4ED8', padding: '3px 10px', borderRadius: '20px', fontWeight: '600' }}>{test}</span>
+                  ))}
+                </div>
+                {req.doctorNote && <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '10px' }}>Doctor note: {req.doctorNote}</p>}
+                <Link href='/patient/upload' style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 18px', background: '#1D4ED8', color: 'white', borderRadius: '10px', fontSize: '13px', fontWeight: '600', textDecoration: 'none' }}>
+                  📤 Upload Test Results
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Main Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>

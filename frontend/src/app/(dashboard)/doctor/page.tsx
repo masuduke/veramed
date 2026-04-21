@@ -30,6 +30,10 @@ export default function DoctorDashboard() {
   const [doctorNotes, setDoctorNotes] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showTestRequestModal, setShowTestRequestModal] = useState(false);
+  const [testRequestNote, setTestRequestNote] = useState('');
+  const [selectedTests, setSelectedTests] = useState<string[]>([]);
+  const [submittingTests, setSubmittingTests] = useState(false);
   const [safeToDispensePartial, setSafeToDispensePartial] = useState(false);
   const [partialNote, setPartialNote] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -105,6 +109,23 @@ export default function DoctorDashboard() {
     } catch (err: any) {
       alert('Error: ' + (err?.response?.data?.error || err.message));
     } finally { setActionLoading(false); }
+  };
+
+  const handleRequestTests = async () => {
+    if (!selectedCase || selectedTests.length === 0) return;
+    setSubmittingTests(true);
+    try {
+      await api.post(/doctor/prescriptions//request-tests, {
+        requestedTests: selectedTests,
+        doctorNote: testRequestNote,
+      });
+      setShowTestRequestModal(false);
+      setSelectedTests([]);
+      setTestRequestNote('');
+      alert('Test request sent to patient successfully');
+    } catch (err: any) {
+      alert('Error: ' + (err?.response?.data?.error || err.message));
+    } finally { setSubmittingTests(false); }
   };
 
   const handleReject = async () => {
@@ -470,6 +491,10 @@ export default function DoctorDashboard() {
 
                   {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={() => setShowTestRequestModal(true)}
+                      style={{ flex: 1, padding: '12px', border: '1px solid #3B82F6', borderRadius: '10px', background: 'white', color: '#3B82F6', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                      🧪 Request Tests
+                    </button>
                     <button onClick={() => setShowRejectModal(true)}
                       style={{ flex: 1, padding: '12px', border: '1px solid #FECACA', borderRadius: '10px', background: 'white', color: '#DC2626', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
                       ❌ Reject
