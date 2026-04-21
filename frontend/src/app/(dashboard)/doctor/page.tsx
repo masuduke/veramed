@@ -112,7 +112,8 @@ export default function DoctorDashboard() {
   };
 
   const handleRequestTests = async () => {
-    if (!selectedCase || selectedTests.length === 0) return;
+    console.log('handleRequestTests called', selectedTests, selectedCase?.id);
+    if (!selectedCase || selectedTests.length === 0) { alert('Please select at least one test'); return; }
     setSubmittingTests(true);
     try {
       await api.post('/doctor/prescriptions/' + selectedCase.id + '/request-tests', {
