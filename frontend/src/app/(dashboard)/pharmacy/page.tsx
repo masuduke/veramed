@@ -44,7 +44,7 @@ export default function PharmacyDashboard() {
     if (!newMed.name || !newMed.price || !newMed.stock) return;
     setAddingMed(true);
     try {
-      await api.post('/pharmacy/medications', {
+      await api.post('/pharmacy/medications', { requiresPrescription: false,
         name: newMed.name,
         genericName: newMed.genericName,
         strength: newMed.strength,
