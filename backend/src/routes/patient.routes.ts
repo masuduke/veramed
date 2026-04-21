@@ -314,6 +314,14 @@ patientRouter.post('/test-requests/:id/upload',
       data: { status: 'uploaded', patientUploadedAt: new Date() },
     });
 
+    // Update prescription status back to pending_review so same doctor sees it
+    await db.prescription.update({
+      where: { id: testRequest.prescriptionId },
+      data: { status: 'pending_review' } as any,
+    });
+
+    console.log('Test results uploaded for prescription ' + testRequest.prescriptionId + ' - doctor notified');
+
     // Re-trigger AI analysis with test results
     const dob = (patient as any).dateOfBirth;
     const ageText = dob ? 'Patient age: ' + Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365)) + ' years old.' : '';

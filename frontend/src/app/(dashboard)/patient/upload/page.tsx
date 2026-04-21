@@ -10,6 +10,9 @@ export default function UploadPage() {
   const { accessToken } = useAuthStore();
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const testRequestId = searchParams?.get('testRequestId') || null;
   const [description, setDescription] = useState('');
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -31,10 +34,19 @@ export default function UploadPage() {
     setLoading(true); setError('');
     try {
       const formData = new FormData();
-      if (file) formData.append('report', file);
+      if (testRequestId) {
+        // Upload test results - can have multiple files
+        files.forEach(f => formData.append('report', f));
+        if (file) formData.append('report', file);
+      } else {
+        if (file) formData.append('report', file);
+      }
       formData.append('description', description);
       formData.append('symptoms', JSON.stringify(symptoms));
-      const res = await fetch('https://veramed.onrender.com/api/patient/upload-report', {
+      const endpoint = testRequestId 
+        ? 'https://veramed.onrender.com/api/patient/test-requests/' + testRequestId + '/upload'
+        : 'https://veramed.onrender.com/api/patient/upload-report';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + accessToken },
         body: formData,

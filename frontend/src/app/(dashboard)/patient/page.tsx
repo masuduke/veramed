@@ -264,9 +264,9 @@ export default function PatientDashboard() {
                   ))}
                 </div>
                 {req.doctorNote && <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '10px' }}>Doctor note: {req.doctorNote}</p>}
-                <Link href='/patient/upload' style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 18px', background: '#1D4ED8', color: 'white', borderRadius: '10px', fontSize: '13px', fontWeight: '600', textDecoration: 'none' }}>
+                <a href={'/patient/upload?testRequestId=' + req.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 18px', background: '#1D4ED8', color: 'white', borderRadius: '10px', fontSize: '13px', fontWeight: '600', textDecoration: 'none' }}>
                   📤 Upload Test Results
-                </Link>
+                </a>
               </div>
             ))}
           </div>
