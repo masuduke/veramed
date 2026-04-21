@@ -15,7 +15,7 @@ export default function PharmacyDashboard() {
   const [accountName, setAccountName] = useState('');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
-  const [newMed, setNewMed] = useState({ name: '', price: '', stock: '', description: '' });
+  const [newMed, setNewMed] = useState({ name: '', genericName: '', strength: '', dosageForm: '', category: '', price: '', stock: '', description: '' });
   const [addingMed, setAddingMed] = useState(false);
 
   const { data: orders } = useQuery({
@@ -46,11 +46,15 @@ export default function PharmacyDashboard() {
     try {
       await api.post('/pharmacy/medications', {
         name: newMed.name,
+        genericName: newMed.genericName,
+        strength: newMed.strength,
+        dosageForm: newMed.dosageForm,
+        category: newMed.category,
         price: Math.round(parseFloat(newMed.price) * 100),
         stock: parseInt(newMed.stock),
         description: newMed.description,
       });
-      setNewMed({ name: '', price: '', stock: '', description: '' });
+      setNewMed({ name: '', genericName: '', strength: '', dosageForm: '', category: '', price: '', stock: '', description: '' });
       refetchInventory();
     } catch (err: any) {
       alert('Error: ' + (err?.response?.data?.error || err.message));
@@ -201,6 +205,39 @@ export default function PharmacyDashboard() {
                     style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px 12px', fontSize: '13px', outline: 'none' }} />
                 </div>
                 <div>
+                  <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Generic Name (INN)</label>
+                  <input value={newMed.genericName} onChange={e => setNewMed({...newMed, genericName: e.target.value})} placeholder="e.g. Paracetamol, Ibuprofen"
+                    style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px 12px', fontSize: '13px', outline: 'none', marginBottom: '12px' }} />
+                  <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Strength</label>
+                  <input value={newMed.strength} onChange={e => setNewMed({...newMed, strength: e.target.value})} placeholder="e.g. 500mg, 10mg/5ml"
+                    style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px 12px', fontSize: '13px', outline: 'none', marginBottom: '12px' }} />
+                  <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Dose Form</label>
+                  <select value={newMed.dosageForm} onChange={e => setNewMed({...newMed, dosageForm: e.target.value})}
+                    style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px 12px', fontSize: '13px', outline: 'none', background: 'white', marginBottom: '12px' }}>
+                    <option value="">Select form</option>
+                    <option value="tablet">Tablet</option>
+                    <option value="capsule">Capsule</option>
+                    <option value="syrup">Syrup</option>
+                    <option value="injection">Injection</option>
+                    <option value="cream">Cream/Ointment</option>
+                    <option value="drops">Drops</option>
+                    <option value="inhaler">Inhaler</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Category</label>
+                  <select value={newMed.category} onChange={e => setNewMed({...newMed, category: e.target.value})}
+                    style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px 12px', fontSize: '13px', outline: 'none', background: 'white', marginBottom: '12px' }}>
+                    <option value="">Select category</option>
+                    <option value="antibiotic">Antibiotic</option>
+                    <option value="analgesic">Analgesic / Painkiller</option>
+                    <option value="antihistamine">Antihistamine</option>
+                    <option value="antiviral">Antiviral</option>
+                    <option value="cardiovascular">Cardiovascular</option>
+                    <option value="diabetes">Diabetes</option>
+                    <option value="respiratory">Respiratory</option>
+                    <option value="vitamin">Vitamin / Supplement</option>
+                    <option value="other">Other</option>
+                  </select>
                   <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Price (£) *</label>
                   <input value={newMed.price} onChange={e => setNewMed({...newMed, price: e.target.value})} placeholder="e.g. 12.99" type="number" step="0.01"
                     style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px 12px', fontSize: '13px', outline: 'none' }} />
@@ -233,8 +270,9 @@ export default function PharmacyDashboard() {
                     <div key={med.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', border: '1px solid #F3F4F6', borderRadius: '12px', background: '#FAFAFA' }}>
                       <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>💊</div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: '0 0 2px' }}>{med.name}</p>
-                        <p style={{ fontSize: '12px', color: '#6B7280', margin: 0 }}>Stock: {med.stock} units</p>
+                        <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: '0 0 1px' }}>{med.name}</p>
+                        {med.genericName && <p style={{ fontSize: '11px', color: '#3B82F6', margin: '0 0 2px', fontStyle: 'italic' }}>Generic: {med.genericName} {med.strength || ''}</p>}
+                        <p style={{ fontSize: '12px', color: '#6B7280', margin: 0 }}>Stock: {med.stock} units {med.dosageForm ? '· ' + med.dosageForm : ''}</p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <p style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', margin: '0 0 2px' }}>£{(med.price / 100).toFixed(2)}</p>
