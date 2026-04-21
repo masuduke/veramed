@@ -34,6 +34,10 @@ export default function DoctorDashboard() {
   const [testRequestNote, setTestRequestNote] = useState('');
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
   const [submittingTests, setSubmittingTests] = useState(false);
+  const [showTestRequestModal, setShowTestRequestModal] = useState(false);
+  const [testRequestNote, setTestRequestNote] = useState('');
+  const [selectedTests, setSelectedTests] = useState<string[]>([]);
+  const [submittingTests, setSubmittingTests] = useState(false);
   const [safeToDispensePartial, setSafeToDispensePartial] = useState(false);
   const [partialNote, setPartialNote] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -113,6 +117,23 @@ export default function DoctorDashboard() {
 
   const handleRequestTests = async () => {
     console.log('handleRequestTests called', selectedTests, selectedCase?.id);
+    if (!selectedCase || selectedTests.length === 0) { alert('Please select at least one test'); return; }
+    setSubmittingTests(true);
+    try {
+      await api.post('/doctor/prescriptions/' + selectedCase.id + '/request-tests', {
+        requestedTests: selectedTests,
+        doctorNote: testRequestNote,
+      });
+      setShowTestRequestModal(false);
+      setSelectedTests([]);
+      setTestRequestNote('');
+      alert('Test request sent to patient successfully');
+    } catch (err: any) {
+      alert('Error: ' + (err?.response?.data?.error || err.message));
+    } finally { setSubmittingTests(false); }
+  };
+
+  const handleRequestTests = async () => {
     if (!selectedCase || selectedTests.length === 0) { alert('Please select at least one test'); return; }
     setSubmittingTests(true);
     try {
@@ -494,6 +515,7 @@ export default function DoctorDashboard() {
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button onClick={() => setShowTestRequestModal(true)}
                       style={{ flex: 1, padding: '12px', border: '1px solid #3B82F6', borderRadius: '10px', background: 'white', color: '#3B82F6', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                      style={{ flex: 1, padding: '12px', border: '1px solid #3B82F6', borderRadius: '10px', background: 'white', color: '#3B82F6', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
                       🧪 Request Tests
                     </button>
                     <button onClick={() => setShowRejectModal(true)}
@@ -618,6 +640,33 @@ export default function DoctorDashboard() {
       </div>
 
       {/* Reject Modal */}
+      {showTestRequestModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: 'white', borderRadius: '20px', padding: '28px', width: '480px', maxHeight: '80vh', overflowY: 'auto' as const }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', marginBottom: '8px' }}>Request Diagnostic Tests</h3>
+            <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '16px' }}>Select tests for the patient to complete.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+              {['Full Blood Count (FBC)', 'C-Reactive Protein (CRP)', 'ESR', 'Blood Culture', 'Liver Function Tests', 'Kidney Function Tests', 'Thyroid Function Tests', 'HbA1c', 'Chest X-Ray', 'ECG', 'Urine Analysis', 'COVID-19 Test', 'Malaria Test', 'Allergy Skin Test', 'MRI Scan', 'CT Scan', 'Ultrasound', 'Throat Swab'].map(test => (
+                <label key={test} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', border: '1px solid #E5E7EB', borderRadius: '8px', cursor: 'pointer' }}>
+                  <input type='checkbox' checked={selectedTests.includes(test)} onChange={e => setSelectedTests(prev => e.target.checked ? [...prev, test] : prev.filter(t => t !== test))} />
+                  <span style={{ fontSize: '13px' }}>{test}</span>
+                </label>
+              ))}
+            </div>
+            <textarea value={testRequestNote} onChange={e => setTestRequestNote(e.target.value)} rows={3} placeholder='Instructions for patient...'
+              style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px', fontSize: '13px', marginBottom: '16px', boxSizing: 'border-box' as const }} />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => { setShowTestRequestModal(false); setSelectedTests([]); }}
+                style={{ flex: 1, padding: '11px', border: '1px solid #E5E7EB', borderRadius: '10px', background: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Cancel</button>
+              <button onClick={handleRequestTests} disabled={selectedTests.length === 0 || submittingTests}
+                style={{ flex: 2, padding: '11px', border: 'none', borderRadius: '10px', background: selectedTests.length === 0 ? '#9CA3AF' : '#3B82F6', color: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                {submittingTests ? 'Sending...' : 'Send Request (' + selectedTests.length + ' tests)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showRejectModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
           <div style={{ background: 'white', borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '440px' }}>
