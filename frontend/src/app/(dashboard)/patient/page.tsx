@@ -175,10 +175,12 @@ export default function PatientDashboard() {
       fetch(`${API}/api/patient/prescriptions`, { headers }).then(r => r.json()).catch(() => []),
       fetch(`${API}/api/patient/orders`, { headers }).then(r => r.json()).catch(() => []),
       fetch(`${API}/api/patient/reports`, { headers }).then(r => r.json()).catch(() => []),
-    ]).then(([rx, ord, rep]) => {
+    fetch(`${API}/api/patient/test-requests`, { headers }).then(r => r.json()).catch(() => []),
+    ]).then(([rx, ord, rep, tests]) => {
       setPrescriptions(Array.isArray(rx) ? rx : []);
       setOrders(Array.isArray(ord) ? ord : []);
       setReports(Array.isArray(rep) ? rep : []);
+      setTestRequests(Array.isArray(tests) ? tests.filter(t => t.status === 'pending') : []);
       setLoading(false);
     });
   }, []);
