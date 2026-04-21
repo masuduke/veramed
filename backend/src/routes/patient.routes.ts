@@ -315,7 +315,8 @@ patientRouter.post('/test-requests/:id/upload',
     });
 
     // Update prescription status back to pending_review so same doctor sees it
-    await db.prescription.update({
+    const { prisma: db2 } = await import('../server');
+    await db2.prescription.update({
       where: { id: testRequest.prescriptionId },
       data: { status: 'pending_review' } as any,
     });
