@@ -296,15 +296,16 @@ patientRouter.post('/test-requests/:id/upload',
     if (!testRequest) throw new AppError('Test request not found', 404);
     if (testRequest.prescription.patientId !== patient.id) throw new AppError('Access denied', 403);
 
-    const s3File = req.file as any;
+    const files = (req.files || []) as any[];
+    const firstFile = files[0];
     const report = await prisma.report.create({
       data: {
         patientId: patient.id,
-        fileUrl: s3File?.key || '',
-        fileName: req.file?.originalname || '',
-        fileType: req.file?.mimetype || '',
-        fileSizeBytes: req.file?.size || 0,
-        description: req.body.description || 'Test results upload',
+        fileUrl: firstFile?.key || '',
+        fileName: firstFile?.originalname || 'Test Results',
+        fileType: firstFile?.mimetype || '',
+        fileSizeBytes: firstFile?.size || 0,
+        description: req.body.description || ('Test results upload - ' + files.length + ' file(s)'),
         symptoms: [],
       },
     });
