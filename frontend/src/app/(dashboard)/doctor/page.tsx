@@ -513,9 +513,7 @@ export default function DoctorDashboard() {
 
                   {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => setShowTestRequestModal(true)}
-                      style={{ flex: 1, padding: '12px', border: '1px solid #3B82F6', borderRadius: '10px', background: 'white', color: '#3B82F6', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                      style={{ flex: 1, padding: '12px', border: '1px solid #3B82F6', borderRadius: '10px', background: 'white', color: '#3B82F6', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                    <button onClick={() => setShowTestRequestModal(true)} style={{ flex: 1, padding: '12px', border: '1px solid #3B82F6', borderRadius: '10px', background: 'white', color: '#3B82F6', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
                       🧪 Request Tests
                     </button>
                     <button onClick={() => setShowRejectModal(true)}
