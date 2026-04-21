@@ -115,7 +115,7 @@ export default function DoctorDashboard() {
     if (!selectedCase || selectedTests.length === 0) return;
     setSubmittingTests(true);
     try {
-      await api.post(/doctor/prescriptions//request-tests, {
+      await api.post('/doctor/prescriptions/' + selectedCase.id + '/request-tests', {
         requestedTests: selectedTests,
         doctorNote: testRequestNote,
       });
