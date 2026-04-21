@@ -34,11 +34,7 @@ export default function DoctorDashboard() {
   const [testRequestNote, setTestRequestNote] = useState('');
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
   const [submittingTests, setSubmittingTests] = useState(false);
-  const [showTestRequestModal, setShowTestRequestModal] = useState(false);
-  const [testRequestNote, setTestRequestNote] = useState('');
-  const [selectedTests, setSelectedTests] = useState<string[]>([]);
-  const [submittingTests, setSubmittingTests] = useState(false);
-  const [safeToDispensePartial, setSafeToDispensePartial] = useState(false);
+    const [safeToDispensePartial, setSafeToDispensePartial] = useState(false);
   const [partialNote, setPartialNote] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [mySpecialty, setMySpecialty] = useState('');
@@ -133,22 +129,7 @@ export default function DoctorDashboard() {
     } finally { setSubmittingTests(false); }
   };
 
-  const handleRequestTests = async () => {
-    if (!selectedCase || selectedTests.length === 0) { alert('Please select at least one test'); return; }
-    setSubmittingTests(true);
-    try {
-      await api.post('/doctor/prescriptions/' + selectedCase.id + '/request-tests', {
-        requestedTests: selectedTests,
-        doctorNote: testRequestNote,
-      });
-      setShowTestRequestModal(false);
-      setSelectedTests([]);
-      setTestRequestNote('');
-      alert('Test request sent to patient successfully');
-    } catch (err: any) {
-      alert('Error: ' + (err?.response?.data?.error || err.message));
-    } finally { setSubmittingTests(false); }
-  };
+
 
   const handleReject = async () => {
     if (!selectedCase || rejectReason.length < 10) return;
