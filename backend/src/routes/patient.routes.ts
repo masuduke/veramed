@@ -283,7 +283,7 @@ patientRouter.get('/test-requests', asyncHandler(async (req, res) => {
 
 // POST /api/patient/test-requests/:id/upload
 patientRouter.post('/test-requests/:id/upload',
-  upload.single('report'),
+  upload.array('report', 10),
   asyncHandler(async (req, res) => {
     const { prisma } = await import('../server');
     const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });

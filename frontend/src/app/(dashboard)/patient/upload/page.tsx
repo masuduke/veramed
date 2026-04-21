@@ -110,7 +110,7 @@ export default function UploadPage() {
               onDrop={handleDrop} onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
               onClick={() => document.getElementById('file-input')?.click()}
               style={{ border: `2px dashed ${drag ? '#3CBEA0' : file ? '#3CBEA0' : '#D1D5DB'}`, borderRadius: '16px', padding: '48px 24px', textAlign: 'center', cursor: 'pointer', background: drag ? '#F0FDF4' : file ? '#F0FDF4' : '#FAFAFA', transition: 'all 0.2s' }}>
-              <input id="file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+              <input id="file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" multiple onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>{file ? '📄' : '📤'}</div>
               {file ? (
                 <div>
