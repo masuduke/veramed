@@ -449,7 +449,37 @@ patientRouter.get('/prescriptions/:id/pharmacy-options', asyncHandler(async (req
       return b.coveragePercent - a.coveragePercent;
     });
 
-  res.json({ pharmacies: options, prescriptionId: req.params.id, medications: prescribedMeds });
+  // Format response to match frontend expectations
+  const foundSomewhere = prescribedMeds.filter((med: any) =>
+    options.some((o: any) => o.availableMeds.find((m: any) => m.name === med.name && m.available))
+  ).length;
+
+  res.json({
+    pharmacyOptions: options.map((o: any) => ({
+      pharmacyId: o.id,
+      pharmacyName: o.storeName,
+      address: o.address,
+      distanceMiles: o.distanceMiles,
+      coveragePercent: o.coveragePercent,
+      medications: o.availableMeds.filter((m: any) => m.available).map((m: any) => ({
+        id: m.medicationId,
+        name: m.name,
+        genericName: m.genericName,
+        price: m.price,
+        stock: m.stock,
+      })),
+      unavailableMeds: o.availableMeds.filter((m: any) => !m.available).map((m: any) => m.name),
+    })),
+    summary: {
+      totalRequested: prescribedMeds.length,
+      foundSomewhere,
+      notFound: prescribedMeds.length - foundSomewhere,
+    },
+    notFoundAnywhere: prescribedMeds.filter((med: any) =>
+      !options.some((o: any) => o.availableMeds.find((m: any) => m.name === med.name && m.available))
+    ).map((m: any) => m.name),
+    prescriptionId: req.params.id,
+  });
 }));
 
 // GET /api/patient/prescriptions/:id/pharmacies
