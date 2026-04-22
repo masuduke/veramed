@@ -368,6 +368,90 @@ patientRouter.post('/test-requests/:id/upload',
   })
 );
 
+
+// GET /api/patient/prescriptions/:id/pharmacy-options
+patientRouter.get('/prescriptions/:id/pharmacy-options', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });
+  if (!patient) throw new AppError('Patient not found', 404);
+
+  const prescription = await prisma.prescription.findFirst({
+    where: { id: req.params.id, patientId: patient.id },
+  });
+  if (!prescription) throw new AppError('Prescription not found', 404);
+
+  const patientLat = (patient as any).lat;
+  const patientLng = (patient as any).lng;
+  const patientCountry = (patient as any).address?.country || null;
+
+  const pharmacies = await prisma.pharmacy.findMany({
+    where: { user: { status: 'verified' }, acceptsOrders: true },
+    include: {
+      user: { select: { name: true, status: true } },
+      medications: { select: { id: true, name: true, genericName: true, stock: true, price: true } },
+    },
+  });
+
+  const prescribedMeds = (prescription.medications as any[]) || [];
+
+  const options = pharmacies.map((pharmacy: any) => {
+    const pharmLat = (pharmacy as any).lat;
+    const pharmLng = (pharmacy as any).lng;
+    let distanceMiles = null;
+    if (patientLat && patientLng && pharmLat && pharmLng) {
+      const R = 3959;
+      const dLat = (pharmLat - patientLat) * Math.PI / 180;
+      const dLon = (pharmLng - patientLng) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(patientLat * Math.PI / 180) * Math.cos(pharmLat * Math.PI / 180) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      distanceMiles = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    const availableMeds = prescribedMeds.map((med: any) => {
+      const match = pharmacy.medications.find((m: any) =>
+        m.name?.toLowerCase().includes(med.name?.toLowerCase() || '') ||
+        (m.genericName && med.genericName && m.genericName.toLowerCase() === med.genericName?.toLowerCase())
+      );
+      return {
+        name: med.name,
+        genericName: med.genericName,
+        available: !!match && match.stock > 0,
+        price: match ? match.price : null,
+        stock: match ? match.stock : null,
+        medicationId: match ? match.id : null,
+      };
+    });
+
+    const availableCount = availableMeds.filter((m: any) => m.available).length;
+    const coveragePercent = prescribedMeds.length > 0 ? Math.round((availableCount / prescribedMeds.length) * 100) : 0;
+    const withinRange = distanceMiles ? distanceMiles <= 10 : true;
+
+    // Country filter
+    const pharmCountry = (pharmacy.address as any)?.country || null;
+    const sameCountry = !patientCountry || !pharmCountry || patientCountry === pharmCountry;
+
+    return {
+      id: pharmacy.id,
+      storeName: pharmacy.storeName,
+      address: pharmacy.address,
+      distanceMiles: distanceMiles ? Math.round(distanceMiles * 10) / 10 : null,
+      availableMeds,
+      availableCount,
+      totalMeds: prescribedMeds.length,
+      coveragePercent,
+      withinRange,
+      sameCountry,
+    };
+  }).filter((o: any) => o.withinRange && o.sameCountry)
+    .sort((a: any, b: any) => {
+      if (a.distanceMiles !== null && b.distanceMiles !== null) return a.distanceMiles - b.distanceMiles;
+      return b.coveragePercent - a.coveragePercent;
+    });
+
+  res.json({ pharmacies: options, prescriptionId: req.params.id, medications: prescribedMeds });
+}));
+
 // GET /api/patient/prescriptions/:id/pharmacies
 patientRouter.get('/prescriptions/:id/pharmacies', asyncHandler(async (req, res) => {
   res.json([]);
