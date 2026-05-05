@@ -8,9 +8,19 @@ import { AppError } from '../utils/errors';
 export const orderRouter  = Router();
 export const paymentRouter = Router();
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+// Stripe is optional — only enable it if a real key is provided.
+// Allows the platform to run end-to-end without payments configured.
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+const stripeEnabled = !!stripeKey && stripeKey.startsWith('sk_');
+const stripe = stripeEnabled
+  ? new Stripe(stripeKey!, { apiVersion: '2024-06-20' })
+  : null;
 
-// ── ORDER ROUTES ───────────────────────────────────────────────────
+if (!stripeEnabled) {
+  console.log('[Stripe] Disabled — STRIPE_SECRET_KEY missing or placeholder. Orders will save without payment processing.');
+}
+
+// ── ORDER ROUTES ──────────────────────────────────────────────────────────────
 
 orderRouter.use(authenticate);
 
@@ -60,13 +70,21 @@ orderRouter.post('/',
     const deliveryFee = 2.99;
     const totalPrice  = subtotal + deliveryFee;
 
-    // Create Stripe Payment Intent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount:   Math.round(totalPrice * 100), // pence
-      currency: 'gbp',
-      metadata: { patientId: patient.id, prescriptionId },
-      automatic_payment_methods: { enabled: true },
-    });
+    // Create Stripe Payment Intent (only if Stripe is configured)
+    let paymentIntent: any = null;
+    if (stripeEnabled && stripe) {
+      try {
+        paymentIntent = await stripe.paymentIntents.create({
+          amount:   Math.round(totalPrice * 100), // pence
+          currency: 'gbp',
+          metadata: { patientId: patient.id, prescriptionId },
+          automatic_payment_methods: { enabled: true },
+        });
+      } catch (err: any) {
+        console.error('[Stripe] PaymentIntent creation failed:', err.message);
+        // Continue without Stripe — order will be marked as pending payment
+      }
+    }
 
     // Create order + delivery + payment atomically
     const order = await prisma.$transaction(async (tx) => {
@@ -93,14 +111,28 @@ orderRouter.post('/',
         },
       });
 
-      await tx.payment.create({
-        data: {
-          orderId:             o.id,
-          stripePaymentIntent: paymentIntent.id,
-          amountPence:         paymentIntent.amount,
-          currency:            'GBP',
-        },
-      });
+      // Only create payment record if Stripe is configured
+      if (paymentIntent) {
+        await tx.payment.create({
+          data: {
+            orderId:             o.id,
+            stripePaymentIntent: paymentIntent.id,
+            amountPence:         paymentIntent.amount,
+            currency:            'GBP',
+          },
+        });
+      } else {
+        // Stripe disabled — create a pending payment record without a Stripe ID
+        await tx.payment.create({
+          data: {
+            orderId:             o.id,
+            stripePaymentIntent: 'pending-' + o.id,
+            amountPence:         Math.round(totalPrice * 100),
+            currency:            'GBP',
+            status:              'pending',
+          },
+        });
+      }
 
       return o;
     });
@@ -112,9 +144,10 @@ orderRouter.post('/',
 
     res.status(201).json({
       orderId:             order.id,
-      clientSecret:        paymentIntent.client_secret,
+      clientSecret:        paymentIntent?.client_secret || null,
       totalPrice,
       deliveryFee,
+      paymentEnabled:      stripeEnabled,
     });
   }),
 );
@@ -133,7 +166,7 @@ orderRouter.get('/:id/status', asyncHandler(async (req, res) => {
   res.json(order);
 }));
 
-// ── PHARMACY ORDER ROUTES ──────────────────────────────────────────
+// ── PHARMACY ORDER ROUTES ─────────────────────────────────────────────────────
 
 // GET /api/orders/pharmacy — pharmacy sees their orders
 orderRouter.get('/pharmacy/incoming',
@@ -206,11 +239,15 @@ orderRouter.patch('/:id/status',
   }),
 );
 
-// ── STRIPE WEBHOOK ─────────────────────────────────────────────────
+// ── STRIPE WEBHOOK ────────────────────────────────────────────────────────────
 
 paymentRouter.post('/webhook',
   // Raw body needed for Stripe signature verification
   asyncHandler(async (req, res) => {
+    if (!stripeEnabled || !stripe) {
+      return res.status(503).json({ error: 'Stripe is not configured on this deployment' });
+    }
+
     const sig = req.headers['stripe-signature'] as string;
     let event: Stripe.Event;
 
