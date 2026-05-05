@@ -1,4 +1,4 @@
-// ── PHARMACY ROUTES ────────────────────────────────────────────────
+// ── PHARMACY ROUTES ────────────────────────────────────────────────────────────
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import { authenticate, authorize, requireVerified } from '../middleware/auth.middleware';
@@ -129,3 +129,154 @@ pharmacyRouter.get('/stats', asyncHandler(async (req, res) => {
 
   res.json({ totalMeds, lowStock, pendingOrders, completedOrders, totalRevenue: revenue._sum.totalPrice || 0 });
 }));
+
+// ── NEW ROUTES ────────────────────────────────────────────────────────────────
+
+// GET /api/pharmacy/orders — pharmacy sees all their orders
+pharmacyRouter.get('/orders', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const pharmacy = await prisma.pharmacy.findUnique({ where: { userId: req.user!.sub } });
+  if (!pharmacy) throw new AppError('Pharmacy not found', 404);
+
+  const orders = await prisma.order.findMany({
+    where: { pharmacyId: pharmacy.id, status: { not: 'cancelled' } },
+    include: {
+      items:    { include: { medication: { select: { name: true, strength: true } } } },
+      patient:  { include: { user: { select: { name: true } } } },
+      delivery: { select: { status: true, driver: { include: { user: { select: { name: true } } } } } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  res.json(orders);
+}));
+
+// POST /api/pharmacy/orders/:id/ready — mark order ready for pickup, auto-assign driver
+pharmacyRouter.post('/orders/:id/ready', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const pharmacy = await prisma.pharmacy.findUnique({ where: { userId: req.user!.sub } });
+  if (!pharmacy) throw new AppError('Pharmacy not found', 404);
+
+  // Verify order belongs to this pharmacy
+  const order = await prisma.order.findFirst({
+    where: { id: req.params.id, pharmacyId: pharmacy.id },
+  });
+  if (!order) throw new AppError('Order not found', 404);
+
+  // Update order status
+  const updated = await prisma.order.update({
+    where: { id: order.id },
+    data: { status: 'ready_for_pickup' },
+  });
+
+  // Auto-assign driver (online + verified, fewest deliveries first)
+  const driver = await prisma.driver.findFirst({
+    where: { isOnline: true, isVerified: true },
+    orderBy: { deliveryCount: 'asc' },
+  });
+
+  if (driver) {
+    await prisma.delivery.update({
+      where: { orderId: order.id },
+      data: {
+        driverId:         driver.id,
+        status:           'assigned',
+        assignedAt:       new Date(),
+        estimatedMinutes: 45,
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: driver.userId,
+        type:   'delivery_assigned',
+        title:  'New Delivery Job',
+        body:   'A delivery has been assigned to you. Please pick up from the pharmacy.',
+        data:   { orderId: order.id },
+      },
+    });
+  }
+
+  await auditLog({
+    userId: req.user!.sub, action: 'updated',
+    resourceType: 'order', resourceId: order.id,
+  });
+
+  res.json({
+    message: 'Order marked ready for pickup',
+    status:  'ready_for_pickup',
+    driverAssigned: !!driver,
+    driverName: driver ? driver.id : null,
+  });
+}));
+
+// GET /api/pharmacy/wallet — balance + transaction history
+// Balance is computed from delivered orders. No actual wallet table needed.
+pharmacyRouter.get('/wallet', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const pharmacy = await prisma.pharmacy.findUnique({ where: { userId: req.user!.sub } });
+  if (!pharmacy) throw new AppError('Pharmacy not found', 404);
+
+  // Sum delivered orders as the pharmacy's earnings (in pounds)
+  const deliveredOrders = await prisma.order.findMany({
+    where: { pharmacyId: pharmacy.id, status: 'delivered' },
+    select: { id: true, totalPrice: true, deliveryFee: true, createdAt: true, updatedAt: true },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  // Pharmacy keeps subtotal (totalPrice - deliveryFee)
+  const balance = deliveredOrders.reduce((sum, o) => {
+    const earned = Number(o.totalPrice) - Number(o.deliveryFee || 0);
+    return sum + earned;
+  }, 0);
+
+  const transactions = deliveredOrders.map((o) => ({
+    type:        'credit',
+    amount:      Number(o.totalPrice) - Number(o.deliveryFee || 0),
+    description: `Order #${o.id.slice(-8).toUpperCase()} delivered`,
+    createdAt:   o.updatedAt,
+  }));
+
+  res.json({ balance, transactions });
+}));
+
+// POST /api/pharmacy/withdraw — submit withdrawal request (admin will process manually)
+pharmacyRouter.post('/withdraw',
+  body('amount').isFloat({ min: 0.01 }),
+  body('bankDetails').isObject(),
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(422).json({ errors: errors.array() });
+
+    const { prisma } = await import('../server');
+    const pharmacy = await prisma.pharmacy.findUnique({ where: { userId: req.user!.sub } });
+    if (!pharmacy) throw new AppError('Pharmacy not found', 404);
+
+    // For now we just create a notification for admin and audit-log it.
+    // A full implementation would have a WithdrawalRequest model.
+    await prisma.notification.create({
+      data: {
+        userId: req.user!.sub,
+        type:   'withdrawal_requested',
+        title:  'Withdrawal Request Submitted',
+        body:   `Your withdrawal request for £${Number(req.body.amount).toFixed(2)} has been submitted. Admin will process within 2-3 business days.`,
+        data:   {
+          amount:      Number(req.body.amount),
+          bankDetails: req.body.bankDetails,
+          pharmacyId:  pharmacy.id,
+        },
+      },
+    });
+
+    await auditLog({
+      userId: req.user!.sub, action: 'created',
+      resourceType: 'withdrawal',
+      resourceId: pharmacy.id,
+    });
+
+    res.status(201).json({
+      message: 'Withdrawal request submitted. Admin will process within 2-3 business days.',
+      amount:  Number(req.body.amount),
+    });
+  }),
+);

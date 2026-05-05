@@ -35,22 +35,23 @@ export default function PharmacyDashboard() {
     refetchInterval: 60000,
   });
 
-  const pendingOrders = orders?.filter((o: any) => ['confirmed','preparing'].includes(o.status)) || [];
+  const pendingOrders = orders?.filter((o: any) => ['pending','confirmed','preparing','ready_for_pickup'].includes(o.status)) || [];
   const completedOrders = orders?.filter((o: any) => ['delivered','completed'].includes(o.status)) || [];
-  const walletBalance = wallet?.balance || 0;
+  const walletBalance = Number(wallet?.balance) || 0; // already in pounds
   const walletTransactions = wallet?.transactions || [];
 
   const handleAddMedication = async () => {
     if (!newMed.name || !newMed.price || !newMed.stock) return;
     setAddingMed(true);
     try {
-      await api.post('/pharmacy/medications', { requiresPrescription: false,
+      await api.post('/pharmacy/medications', {
+        requiresPrescription: false,
         name: newMed.name,
         genericName: newMed.genericName,
         strength: newMed.strength,
         dosageForm: newMed.dosageForm,
         category: newMed.category,
-        price: Math.round(parseFloat(newMed.price) * 100),
+        price: parseFloat(newMed.price), // POUNDS — matches backend Decimal(10,2)
         stock: parseInt(newMed.stock),
         description: newMed.description,
       });
@@ -66,14 +67,14 @@ export default function PharmacyDashboard() {
       alert('Please fill in all bank details');
       return;
     }
-    if (parseFloat(withdrawAmount) > walletBalance / 100) {
+    if (parseFloat(withdrawAmount) > walletBalance) {
       alert('Insufficient wallet balance');
       return;
     }
     setWithdrawLoading(true);
     try {
       await api.post('/pharmacy/withdraw', {
-        amount: Math.round(parseFloat(withdrawAmount) * 100),
+        amount: parseFloat(withdrawAmount), // POUNDS
         bankDetails: { bankName, accountNumber, sortCode, accountName },
       });
       setWithdrawSuccess(true);
@@ -117,7 +118,7 @@ export default function PharmacyDashboard() {
           {[
             { label: 'Pending Orders', value: pendingOrders.length, icon: '📦', bg: '#FEF3C7', accent: '#D97706' },
             { label: 'Completed', value: completedOrders.length, icon: '✅', bg: '#DCFCE7', accent: '#16A34A' },
-            { label: 'Wallet Balance', value: `£${(walletBalance / 100).toFixed(2)}`, icon: '💰', bg: '#EEF2FF', accent: '#4F46E5' },
+            { label: 'Wallet Balance', value: `£${walletBalance.toFixed(2)}`, icon: '💰', bg: '#EEF2FF', accent: '#4F46E5' },
             { label: 'Medications', value: inventory?.length || 0, icon: '💊', bg: '#F0F9FF', accent: '#0284C7' },
           ].map(s => (
             <div key={s.label} style={{ background: 'white', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -145,31 +146,39 @@ export default function PharmacyDashboard() {
                 <p style={{ color: '#6B7280', fontSize: '14px' }}>No active orders right now. Orders appear here when patients select your pharmacy after doctor approval.</p>
               </div>
             ) : (
-              pendingOrders.map((o: any) => (
+              pendingOrders.map((o: any) => {
+                const isReady = o.status === 'ready_for_pickup';
+                return (
                 <div key={o.id} style={{ border: '1px solid #E5E7EB', borderRadius: '14px', padding: '16px', marginBottom: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                     <div>
                       <p style={{ fontSize: '14px', fontWeight: '600', color: '#0B1F3A', margin: '0 0 2px' }}>Order #{o.id?.slice(-8).toUpperCase()}</p>
                       <p style={{ fontSize: '12px', color: '#6B7280', margin: 0 }}>Patient: {o.patient?.user?.name || 'Patient'}</p>
                     </div>
-                    <span style={{ fontSize: '12px', background: '#FEF3C7', color: '#D97706', padding: '4px 10px', borderRadius: '20px', fontWeight: '600' }}>
-                      {o.status === 'confirmed' ? '⏳ Prepare' : '📦 Ready'}
+                    <span style={{ fontSize: '12px',
+                      background: isReady ? '#DCFCE7' : '#FEF3C7',
+                      color: isReady ? '#15803D' : '#D97706',
+                      padding: '4px 10px', borderRadius: '20px', fontWeight: '600' }}>
+                      {isReady ? '🚗 Awaiting Driver' : '⏳ Prepare'}
                     </span>
                   </div>
                   {o.items?.map((item: any, i: number) => (
                     <div key={i} style={{ fontSize: '13px', color: '#374151', padding: '6px 10px', background: '#F9FAFB', borderRadius: '8px', marginBottom: '4px' }}>
-                      💊 {item.medication?.name || 'Medication'} × {item.quantity} — £{((item.unitPrice * item.quantity) / 100).toFixed(2)}
+                      💊 {item.medication?.name || 'Medication'} × {item.quantity} — £{(Number(item.unitPrice) * item.quantity).toFixed(2)}
                     </div>
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-                    <p style={{ fontSize: '14px', fontWeight: '700', color: '#0B1F3A', margin: 0 }}>Total: £{(o.totalPrice / 100).toFixed(2)}</p>
-                    <button onClick={() => api.post(`/pharmacy/orders/${o.id}/ready`).then(() => queryClient.invalidateQueries({queryKey:['pharmacy-orders']}))}
-                      style={{ padding: '8px 16px', background: '#3CBEA0', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-                      Mark Ready for Pickup
-                    </button>
+                    <p style={{ fontSize: '14px', fontWeight: '700', color: '#0B1F3A', margin: 0 }}>Total: £{Number(o.totalPrice).toFixed(2)}</p>
+                    {!isReady && (
+                      <button onClick={() => api.post(`/pharmacy/orders/${o.id}/ready`).then(() => queryClient.invalidateQueries({queryKey:['pharmacy-orders']})).catch((err) => alert('Error: ' + (err?.response?.data?.error || err.message)))}
+                        style={{ padding: '8px 16px', background: '#3CBEA0', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                        Mark Ready for Pickup
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
 
             {completedOrders.length > 0 && (
@@ -182,7 +191,7 @@ export default function PharmacyDashboard() {
                       <p style={{ fontSize: '11px', color: '#9CA3AF', margin: 0 }}>{new Date(o.updatedAt || o.createdAt).toLocaleDateString('en-GB')}</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontSize: '14px', fontWeight: '700', color: '#16A34A', margin: '0 0 2px' }}>+£{(o.totalPrice / 100).toFixed(2)}</p>
+                      <p style={{ fontSize: '14px', fontWeight: '700', color: '#16A34A', margin: '0 0 2px' }}>+£{Number(o.totalPrice).toFixed(2)}</p>
                       <span style={{ fontSize: '11px', background: '#DCFCE7', color: '#15803D', padding: '2px 8px', borderRadius: '10px' }}>✓ Paid to wallet</span>
                     </div>
                   </div>
@@ -275,7 +284,7 @@ export default function PharmacyDashboard() {
                         <p style={{ fontSize: '12px', color: '#6B7280', margin: 0 }}>Stock: {med.stock} units {med.dosageForm ? '· ' + med.dosageForm : ''}</p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <p style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', margin: '0 0 2px' }}>£{(med.price / 100).toFixed(2)}</p>
+                        <p style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', margin: '0 0 2px' }}>£{Number(med.price).toFixed(2)}</p>
                         <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: '500', background: med.stock > 10 ? '#DCFCE7' : '#FEE2E2', color: med.stock > 10 ? '#15803D' : '#DC2626' }}>
                           {med.stock > 10 ? 'In Stock' : med.stock === 0 ? 'Out of Stock' : 'Low Stock'}
                         </span>
@@ -293,7 +302,7 @@ export default function PharmacyDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ background: 'linear-gradient(135deg, #0B1F3A, #1a3a5c)', borderRadius: '20px', padding: '28px', color: 'white' }}>
               <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Available Balance</p>
-              <p style={{ fontSize: '40px', fontWeight: '700', margin: '0 0 8px' }}>£{(walletBalance / 100).toFixed(2)}</p>
+              <p style={{ fontSize: '40px', fontWeight: '700', margin: '0 0 8px' }}>£{walletBalance.toFixed(2)}</p>
               <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>Earnings from completed deliveries • Auto-updated on delivery confirmation</p>
               <button onClick={() => setActiveTab('withdraw')} style={{ marginTop: '16px', padding: '10px 20px', background: '#3CBEA0', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
                 Withdraw Funds →
@@ -312,7 +321,7 @@ export default function PharmacyDashboard() {
                       <p style={{ fontSize: '11px', color: '#9CA3AF', margin: 0 }}>{new Date(t.createdAt).toLocaleDateString('en-GB')}</p>
                     </div>
                     <p style={{ fontSize: '14px', fontWeight: '700', color: t.type === 'credit' ? '#16A34A' : '#DC2626', margin: 0 }}>
-                      {t.type === 'credit' ? '+' : '-'}£{(t.amount / 100).toFixed(2)}
+                      {t.type === 'credit' ? '+' : '-'}£{Number(t.amount).toFixed(2)}
                     </p>
                   </div>
                 ))
@@ -334,13 +343,13 @@ export default function PharmacyDashboard() {
             )}
 
             <div style={{ padding: '16px', background: '#EFF6FF', borderRadius: '12px', border: '1px solid #BFDBFE', marginBottom: '24px', fontSize: '13px', color: '#1D4ED8' }}>
-              💰 Available balance: <strong>£{(walletBalance / 100).toFixed(2)}</strong>
+              💰 Available balance: <strong>£{walletBalance.toFixed(2)}</strong>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>Withdrawal Amount (£) *</label>
-                <input value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} placeholder="e.g. 50.00" type="number" step="0.01" max={walletBalance / 100}
+                <input value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} placeholder="e.g. 50.00" type="number" step="0.01" max={walletBalance}
                   style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px 12px', fontSize: '13px', outline: 'none' }} />
               </div>
               <div style={{ height: '1px', background: '#F3F4F6' }} />
