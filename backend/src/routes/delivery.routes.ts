@@ -210,13 +210,8 @@ const handleStatusUpdate = asyncHandler(async (req: any, res: any) => {
     }
   }
 
-  // Sync order status when picked up
-  if (status === 'picked_up') {
-    await prisma.order.update({
-      where: { id: delivery.orderId },
-      data:  { status: 'out_for_delivery' },
-    });
-  }
+  // Note: order.status is not synced on pickup because the OrderStatus enum
+  // may not include 'out_for_delivery'. The frontend reads delivery.status instead.
 
   res.json({ message: 'Delivery status updated', status });
 });
