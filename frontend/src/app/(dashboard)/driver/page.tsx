@@ -1,6 +1,6 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/auth-store';
 import { api } from '@/lib/api-client';
 
@@ -39,7 +39,7 @@ export default function DriverDashboard() {
 
   const { data: wallet } = useQuery({
     queryKey: ['driver-wallet'],
-    queryFn: () => api.get('/delivery/wallet').then(r => r.data).catch(() => ({ balance: 0, transactions: [], totalEarned: 0, totalDeliveries: 0 })),
+    queryFn: () => api.get('/delivery/wallet').then(r => r.data).catch(() => ({ balance: 0, transactions: [], totalEarned: 0, totalDeliveries: 0, thisWeek: 0, thisMonth: 0 })),
     refetchInterval: 30000,
   });
 
@@ -50,9 +50,28 @@ export default function DriverDashboard() {
     refetchInterval: 15000,
   });
 
-  const activeDeliveries = deliveries?.filter((d: any) => ['assigned','picked_up','out_for_delivery'].includes(d.status)) || [];
+  const activeDeliveries = deliveries?.filter((d: any) => ['assigned','picked_up','out_for_delivery','in_transit'].includes(d.status)) || [];
   const completedDeliveries = deliveries?.filter((d: any) => ['delivered','completed'].includes(d.status)) || [];
   const available = nearbyDeliveries || [];
+
+  // Wallet values are already in pounds from the backend
+  const balance      = Number(wallet?.balance) || 0;
+  const totalEarned  = Number(wallet?.totalEarned) || 0;
+  const thisWeek     = Number(wallet?.thisWeek) || 0;
+  const thisMonth    = Number(wallet?.thisMonth) || 0;
+
+  // Toggle online status — also tells the backend
+  const handleToggleOnline = async () => {
+    const newState = !isOnline;
+    setIsOnline(newState);
+    try {
+      await api.post('/delivery/driver/online', { isOnline: newState });
+    } catch (err: any) {
+      // Revert if backend fails
+      setIsOnline(!newState);
+      alert('Could not update online status: ' + (err?.response?.data?.error || err.message));
+    }
+  };
 
   // Group nearby deliveries by proximity for multi-pickup
   const multiPickupGroups = available.reduce((groups: any[], delivery: any) => {
@@ -97,10 +116,12 @@ export default function DriverDashboard() {
     setSavingCharges(true);
     try {
       await api.post('/delivery/charges', {
-        chargeType, baseCharge: parseFloat(baseCharge) * 100,
-        perMileRate: parseFloat(perMileRate) * 100,
-        perKmRate: parseFloat(perKmRate) * 100,
-        multiPickupEnabled, multiPickupRadius: parseFloat(multiPickupRadius),
+        chargeType,
+        baseCharge: parseFloat(baseCharge), // pounds
+        perMileRate: parseFloat(perMileRate),
+        perKmRate: parseFloat(perKmRate),
+        multiPickupEnabled,
+        multiPickupRadius: parseFloat(multiPickupRadius),
         multiPickupDiscount: parseFloat(multiPickupDiscount),
       });
       setChargesSaved(true);
@@ -114,13 +135,13 @@ export default function DriverDashboard() {
     if (!withdrawAmount || !bankName || !accountName || !accountNumber) {
       alert('Please fill in all required fields'); return;
     }
-    if (parseFloat(withdrawAmount) * 100 > (wallet?.balance || 0)) {
+    if (parseFloat(withdrawAmount) > balance) {
       alert('Insufficient balance'); return;
     }
     setWithdrawLoading(true);
     try {
       await api.post('/delivery/withdraw', {
-        amount: Math.round(parseFloat(withdrawAmount) * 100),
+        amount: parseFloat(withdrawAmount), // pounds
         bankDetails: { bankName, accountName, accountNumber, sortCode },
       });
       setWithdrawSuccess(true);
@@ -156,7 +177,7 @@ export default function DriverDashboard() {
             </p>
           </div>
           {/* Online toggle */}
-          <div onClick={() => setIsOnline(!isOnline)} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: isOnline ? 'rgba(60,190,160,0.15)' : 'rgba(255,255,255,0.08)', padding: '12px 20px', borderRadius: '14px', border: `1px solid ${isOnline ? 'rgba(60,190,160,0.4)' : 'rgba(255,255,255,0.12)'}`, cursor: 'pointer', transition: 'all 0.2s' }}>
+          <div onClick={handleToggleOnline} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: isOnline ? 'rgba(60,190,160,0.15)' : 'rgba(255,255,255,0.08)', padding: '12px 20px', borderRadius: '14px', border: `1px solid ${isOnline ? 'rgba(60,190,160,0.4)' : 'rgba(255,255,255,0.12)'}`, cursor: 'pointer', transition: 'all 0.2s' }}>
             <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: isOnline ? '#3CBEA0' : '#6B7280', animation: isOnline ? 'pulse 2s infinite' : 'none' }} />
             <span style={{ color: isOnline ? '#3CBEA0' : 'rgba(255,255,255,0.6)', fontSize: '14px', fontWeight: '600' }}>{isOnline ? 'Online' : 'Go Online'}</span>
             <div style={{ width: '44px', height: '24px', borderRadius: '12px', background: isOnline ? '#3CBEA0' : '#374151', position: 'relative', transition: 'background 0.2s' }}>
@@ -171,8 +192,8 @@ export default function DriverDashboard() {
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '24px' }}>
           {[
-            { label: 'Wallet Balance', value: `£${((wallet?.balance || 0) / 100).toFixed(2)}`, icon: '💰', bg: '#EEF2FF', accent: '#4F46E5' },
-            { label: 'Total Earned', value: `£${((wallet?.totalEarned || 0) / 100).toFixed(2)}`, icon: '📈', bg: '#DCFCE7', accent: '#16A34A' },
+            { label: 'Wallet Balance', value: `£${balance.toFixed(2)}`, icon: '💰', bg: '#EEF2FF', accent: '#4F46E5' },
+            { label: 'Total Earned', value: `£${totalEarned.toFixed(2)}`, icon: '📈', bg: '#DCFCE7', accent: '#16A34A' },
             { label: 'Active Jobs', value: activeDeliveries.length, icon: '🚚', bg: '#FEF3C7', accent: '#D97706' },
             { label: 'Deliveries Done', value: wallet?.totalDeliveries || completedDeliveries.length, icon: '✅', bg: '#F0F9FF', accent: '#0284C7' },
           ].map(s => (
@@ -230,7 +251,7 @@ export default function DriverDashboard() {
                           </div>
                           <div style={{ textAlign: 'right' }}>
                             <p style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', margin: '0 0 2px' }}>
-                              £{group.deliveries.reduce((s: number, d: any) => s + (d.deliveryFee || 0), 0).toFixed(2)}
+                              £{group.deliveries.reduce((s: number, d: any) => s + Number(d.deliveryFee || 0), 0).toFixed(2)}
                             </p>
                             <p style={{ fontSize: '11px', color: '#6B7280', margin: 0 }}>{100 - parseInt(multiPickupDiscount)}% discount applied</p>
                           </div>
@@ -257,7 +278,7 @@ export default function DriverDashboard() {
                             <p style={{ fontSize: '12px', color: '#6B7280', margin: 0 }}>📍 Deliver to: {d.address || 'Patient address'}</p>
                           </div>
                           <div style={{ textAlign: 'right' }}>
-                            <p style={{ fontSize: '16px', fontWeight: '700', color: '#16A34A', margin: '0 0 2px' }}>£{((d.deliveryFee || 350) / 100).toFixed(2)}</p>
+                            <p style={{ fontSize: '16px', fontWeight: '700', color: '#16A34A', margin: '0 0 2px' }}>£{Number(d.deliveryFee || 2.99).toFixed(2)}</p>
                             <p style={{ fontSize: '11px', color: '#6B7280', margin: 0 }}>{d.distance || '~2'} miles away</p>
                           </div>
                         </div>
@@ -273,12 +294,12 @@ export default function DriverDashboard() {
             )}
 
             {/* Not online prompt */}
-            {!isOnline && (
+            {!isOnline && activeDeliveries.length === 0 && (
               <div style={{ background: 'white', borderRadius: '20px', padding: '40px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
                 <div style={{ fontSize: '48px', marginBottom: '12px' }}>🚗</div>
                 <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#0B1F3A', marginBottom: '8px' }}>You are offline</h3>
                 <p style={{ color: '#6B7280', fontSize: '14px', marginBottom: '20px' }}>Toggle online above to start receiving delivery requests near you.</p>
-                <button onClick={() => setIsOnline(true)} style={{ padding: '12px 28px', background: '#3CBEA0', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+                <button onClick={handleToggleOnline} style={{ padding: '12px 28px', background: '#3CBEA0', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
                   Go Online Now
                 </button>
               </div>
@@ -297,7 +318,7 @@ export default function DriverDashboard() {
                         <p style={{ fontSize: '12px', color: '#6B7280', margin: 0 }}>Patient: {d.order?.patient?.user?.name}</p>
                       </div>
                       <span style={{ fontSize: '12px', background: '#FEF3C7', color: '#D97706', padding: '4px 10px', borderRadius: '20px', fontWeight: '600', height: 'fit-content' }}>
-                        {d.status === 'assigned' ? '⏳ Go to pharmacy' : d.status === 'picked_up' ? '🚗 Delivering' : '📦 In progress'}
+                        {d.status === 'assigned' ? '⏳ Go to pharmacy' : (d.status === 'picked_up' || d.status === 'out_for_delivery') ? '🚗 Delivering' : '📦 In progress'}
                       </span>
                     </div>
 
@@ -309,7 +330,7 @@ export default function DriverDashboard() {
                           📦 Picked Up from Pharmacy
                         </button>
                       )}
-                      {d.status === 'picked_up' && (
+                      {(d.status === 'picked_up' || d.status === 'out_for_delivery') && (
                         <button onClick={() => handleStatusUpdate(d.id, 'delivered')}
                           style={{ flex: 1, padding: '10px', background: '#16A34A', color: 'white', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
                           ✅ Delivered to Patient
@@ -331,7 +352,7 @@ export default function DriverDashboard() {
                       <p style={{ fontSize: '13px', fontWeight: '500', color: '#374151', margin: '0 0 2px' }}>Order #{d.order?.id?.slice(-6).toUpperCase()}</p>
                       <p style={{ fontSize: '11px', color: '#9CA3AF', margin: 0 }}>{new Date(d.updatedAt || d.createdAt).toLocaleDateString('en-GB')}</p>
                     </div>
-                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#16A34A' }}>+£{((d.deliveryFee || 350) / 100).toFixed(2)}</span>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#16A34A' }}>+£{Number(d.deliveryFee || 2.99).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -344,12 +365,12 @@ export default function DriverDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ background: 'linear-gradient(135deg, #0B1F3A, #1a3a5c)', borderRadius: '20px', padding: '28px', color: 'white' }}>
               <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Available to Withdraw</p>
-              <p style={{ fontSize: '42px', fontWeight: '700', margin: '0 0 4px' }}>£{((wallet?.balance || 0) / 100).toFixed(2)}</p>
-              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: '0 0 20px' }}>Total earned all time: £{((wallet?.totalEarned || 0) / 100).toFixed(2)}</p>
+              <p style={{ fontSize: '42px', fontWeight: '700', margin: '0 0 4px' }}>£{balance.toFixed(2)}</p>
+              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: '0 0 20px' }}>Total earned all time: £{totalEarned.toFixed(2)}</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px' }}>
                 {[
-                  { label: 'This Week', value: `£${((wallet?.thisWeek || 0) / 100).toFixed(2)}` },
-                  { label: 'This Month', value: `£${((wallet?.thisMonth || 0) / 100).toFixed(2)}` },
+                  { label: 'This Week', value: `£${thisWeek.toFixed(2)}` },
+                  { label: 'This Month', value: `£${thisMonth.toFixed(2)}` },
                   { label: 'Deliveries', value: wallet?.totalDeliveries || 0 },
                 ].map(s => (
                   <div key={s.label} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
@@ -376,7 +397,7 @@ export default function DriverDashboard() {
                     </div>
                   </div>
                   <p style={{ fontSize: '14px', fontWeight: '700', color: t.type === 'credit' ? '#16A34A' : '#DC2626', margin: 0 }}>
-                    {t.type === 'credit' ? '+' : '-'}£{(t.amount / 100).toFixed(2)}
+                    {t.type === 'credit' ? '+' : '-'}£{Number(t.amount).toFixed(2)}
                   </p>
                 </div>
               ))}
@@ -400,7 +421,7 @@ export default function DriverDashboard() {
                   {[
                     { k: 'fixed', label: '📦 Fixed Fee', desc: 'Same charge per delivery' },
                     { k: 'per_mile', label: '🛣️ Per Mile', desc: 'Charge by distance in miles' },
-                    { k: 'per_km', label: '📏 Per KM', desc: 'Charge by distance in km' },
+                    { k: 'per_km', label: '📍 Per KM', desc: 'Charge by distance in km' },
                   ].map(opt => (
                     <button key={opt.k} onClick={() => setChargeType(opt.k as any)}
                       style={{ padding: '14px', border: `2px solid ${chargeType === opt.k ? '#0B1F3A' : '#E5E7EB'}`, borderRadius: '12px', background: chargeType === opt.k ? '#F9FAFB' : 'white', cursor: 'pointer', textAlign: 'left' }}>
@@ -516,22 +537,22 @@ export default function DriverDashboard() {
 
             <div style={{ padding: '16px', background: '#EFF6FF', borderRadius: '12px', border: '1px solid #BFDBFE', marginBottom: '24px' }}>
               <p style={{ fontSize: '13px', color: '#1D4ED8', margin: 0 }}>
-                💰 Available balance: <strong>£{((wallet?.balance || 0) / 100).toFixed(2)}</strong>
+                💰 Available balance: <strong>£{balance.toFixed(2)}</strong>
               </p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Withdrawal Amount (£) *</label>
-                <input value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} type="number" step="0.01" max={(wallet?.balance || 0) / 100}
-                  placeholder={`Max £${((wallet?.balance || 0) / 100).toFixed(2)}`}
+                <input value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} type="number" step="0.01" max={balance}
+                  placeholder={`Max £${balance.toFixed(2)}`}
                   style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '10px 12px', fontSize: '14px', outline: 'none' }} />
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                   {[10, 25, 50].map(a => (
-                    <button key={a} onClick={() => setWithdrawAmount(Math.min(a, (wallet?.balance || 0) / 100).toString())}
+                    <button key={a} onClick={() => setWithdrawAmount(Math.min(a, balance).toString())}
                       style={{ padding: '5px 12px', border: '1px solid #E5E7EB', borderRadius: '8px', background: 'white', color: '#374151', fontSize: '12px', cursor: 'pointer' }}>£{a}</button>
                   ))}
-                  <button onClick={() => setWithdrawAmount(((wallet?.balance || 0) / 100).toString())}
+                  <button onClick={() => setWithdrawAmount(balance.toString())}
                     style={{ padding: '5px 12px', border: '1px solid #E5E7EB', borderRadius: '8px', background: 'white', color: '#374151', fontSize: '12px', cursor: 'pointer' }}>All</button>
                 </div>
               </div>
