@@ -14,7 +14,7 @@ export const patientRouter = Router();
 
 patientRouter.use(authenticate, authorize('patient'));
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ S3 Upload Config Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ── S3 Upload Config ───────────────────────────────────────────────
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 
 const upload = multer({
@@ -202,7 +202,7 @@ patientRouter.get('/reports', asyncHandler(async (req, res) => {
   res.json(reports);
 }));
 
-// GET /api/patient/reports/:id/file Ã¢â‚¬â€ generate signed URL
+// GET /api/patient/reports/:id/file — generate signed URL
 patientRouter.get('/reports/:id/file', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });
@@ -242,7 +242,7 @@ patientRouter.get('/prescriptions', asyncHandler(async (req, res) => {
       doctor: {
         include: { user: { select: { name: true, avatarUrl: true } } },
       },
-      // IMPORTANT: Only include AI analysis if approved Ã¢â‚¬â€ doctors control what patients see
+      // IMPORTANT: Only include AI analysis if approved — doctors control what patients see
       aiAnalysis: {
         select: {
           aiSummary: true,
@@ -254,7 +254,7 @@ patientRouter.get('/prescriptions', asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' },
   });
 
-  // Strip AI raw data Ã¢â‚¬â€ patients only see doctor-approved content
+  // Strip AI raw data — patients only see doctor-approved content
   const safeData = prescriptions.map((p) => ({
     ...p,
     // Only expose AI summary if prescription is approved
@@ -323,7 +323,7 @@ patientRouter.post('/test-requests/:id/upload',
     });
     // Reset prescription approvals to pending so doctor sees case again
     await (db2 as any).prescriptionApproval.updateMany({
-      where: { 
+      where: {
         prescriptionId: testRequest.prescriptionId,
         doctorId: testRequest.doctorId,
       },
@@ -455,29 +455,55 @@ patientRouter.get('/prescriptions/:id/pharmacy-options', asyncHandler(async (req
   ).length;
 
   res.json({
-    pharmacyOptions: options.map((o: any) => ({
-      pharmacyId: o.id,
-      pharmacyName: o.storeName,
-      address: o.address,
-      distanceMiles: o.distanceMiles,
-      coveragePercent: o.coveragePercent,
-      medications: o.availableMeds.filter((m: any) => m.available).map((m: any) => ({
-        id: m.medicationId,
-        name: m.name,
-        genericName: m.genericName,
-        price: m.price,
-        stock: m.stock,
-      })),
-      unavailableMeds: o.availableMeds.filter((m: any) => !m.available).map((m: any) => m.name),
-    })),
+    pharmacyOptions: options.map((o: any) => {
+      const foundMeds = o.availableMeds
+        .filter((m: any) => m.available)
+        .map((m: any) => ({
+          id: m.medicationId,
+          name: m.name,
+          genericName: m.genericName,
+          price: Number(m.price) || 0,
+          stock: m.stock,
+        }));
+
+      const missingMeds = o.availableMeds
+        .filter((m: any) => !m.available)
+        .map((m: any) => ({ name: m.name }));
+
+      const totalPrice = foundMeds.reduce(
+        (sum: number, m: any) => sum + (Number(m.price) || 0),
+        0
+      );
+
+      const locationStr = o.address
+        ? [o.address.street, o.address.city].filter(Boolean).join(', ')
+        : null;
+
+      return {
+        pharmacyId: o.id,
+        pharmacyName: o.storeName,
+        address: o.address,
+        location: locationStr,
+        distanceMiles: o.distanceMiles,
+        coverage: o.coveragePercent,
+        totalPrice,
+        foundMeds,
+        missingMeds,
+      };
+    }),
     summary: {
       totalRequested: prescribedMeds.length,
       foundSomewhere,
       notFound: prescribedMeds.length - foundSomewhere,
     },
-    notFoundAnywhere: prescribedMeds.filter((med: any) =>
-      !options.some((o: any) => o.availableMeds.find((m: any) => m.name === med.name && m.available))
-    ).map((m: any) => m.name),
+    notFoundAnywhere: prescribedMeds
+      .filter((med: any) =>
+        !options.some((o: any) =>
+          o.availableMeds.find((m: any) => m.name === med.name && m.available)
+        )
+      )
+      .map((m: any) => ({ name: m.name })),
+    splitOption: null,
     prescriptionId: req.params.id,
   });
 }));

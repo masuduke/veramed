@@ -61,20 +61,29 @@ export default function PrescriptionsPage() {
   const handleOrder = async () => {
     setOrdering(true);
     try {
+      // Build delivery address from selected pharmacy or fallback
+      const deliveryAddress = selectedPharmacy?.address || { city: 'Manchester' };
+
       if (orderMode === 'split' && pharmacyOptions?.splitOption) {
         const { pharmacyA, pharmacyB } = pharmacyOptions.splitOption;
-        await api.post('/orders/create', {
+        await api.post('/orders', {
           prescriptionId: selectedRx.id,
+          pharmacyId: pharmacyA.pharmacyId,
+          deliveryAddress,
           items: pharmacyA.medications.map((m: any) => ({ medicationId: m.id, quantity: 1 })),
         });
-        await api.post('/orders/create', {
+        await api.post('/orders', {
           prescriptionId: selectedRx.id,
+          pharmacyId: pharmacyB.pharmacyId,
+          deliveryAddress,
           items: pharmacyB.medications.map((m: any) => ({ medicationId: m.id, quantity: 1 })),
         });
       } else {
-        await api.post('/orders/create', {
+        await api.post('/orders', {
           prescriptionId: selectedRx.id,
-          items: selectedPharmacy.medications.map((m: any) => ({ medicationId: m.id, quantity: 1 })),
+          pharmacyId: selectedPharmacy.pharmacyId,
+          deliveryAddress,
+          items: selectedPharmacy.foundMeds.map((m: any) => ({ medicationId: m.id, quantity: 1 })),
         });
       }
       setOrderSuccess(true);
@@ -415,7 +424,7 @@ export default function PrescriptionsPage() {
                                       {ph.location && <p style={{ fontSize: '12px', color: '#6B7280', margin: 0 }}>📍 {ph.location}</p>}
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                      <p style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', margin: '0 0 2px' }}>£{(ph.totalPrice / 100).toFixed(2)}</p>
+                                      <p style={{ fontSize: '16px', fontWeight: '700', color: '#0B1F3A', margin: '0 0 2px' }}>£{(ph.totalPrice || 0).toFixed(2)}</p>
                                       <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: '600',
                                         background: ph.coverage === 100 ? '#DCFCE7' : '#FEF3C7',
                                         color: ph.coverage === 100 ? '#15803D' : '#D97706' }}>
@@ -445,13 +454,13 @@ export default function PrescriptionsPage() {
                                   <div key={idx} style={{ border: '2px solid #3CBEA0', borderRadius: '14px', padding: '14px', background: '#F0FDF4' }}>
                                     <p style={{ fontSize: '13px', fontWeight: '700', color: '#0B1F3A', margin: '0 0 8px' }}>Pharmacy {idx + 1}: {ph.pharmacyName}</p>
                                     {ph.medications?.map((m: any) => (
-                                      <div key={m.name} style={{ fontSize: '12px', color: '#15803D', padding: '2px 0' }}>✓ {m.name} — £{(m.price / 100).toFixed(2)}</div>
+                                      <div key={m.name} style={{ fontSize: '12px', color: '#15803D', padding: '2px 0' }}>✓ {m.name} — £{(m.price || 0).toFixed(2)}</div>
                                     ))}
                                   </div>
                                 ))}
                               </div>
                               <div style={{ padding: '10px 14px', background: '#EFF6FF', borderRadius: '10px', fontSize: '12px', color: '#1D4ED8', marginBottom: '16px' }}>
-                                💡 Two separate orders. Total: <strong>£{(pharmacyOptions.splitOption.totalPrice / 100).toFixed(2)}</strong>
+                                💡 Two separate orders. Total: <strong>£{(pharmacyOptions.splitOption.totalPrice || 0).toFixed(2)}</strong>
                               </div>
                             </div>
                           )}
