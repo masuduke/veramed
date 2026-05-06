@@ -10,8 +10,7 @@ deliveryRouter.use(authenticate);
 
 // ── DRIVER QUERY ROUTES ──────────────────────────────────────────────────────
 
-// GET /api/delivery/driver-orders — driver's own deliveries (assigned, in progress, completed)
-// Frontend expects this as the main listing
+// GET /api/delivery/driver-orders — driver's own deliveries
 deliveryRouter.get('/driver-orders',
   authorize('driver'),
   asyncHandler(async (req, res) => {
@@ -34,20 +33,19 @@ deliveryRouter.get('/driver-orders',
       orderBy: { createdAt: 'desc' },
     });
 
-    // Add computed fields the frontend expects
     const enriched = deliveries.map((d: any) => ({
       ...d,
       address:      d.deliveryAddress?.street
         ? [d.deliveryAddress.street, d.deliveryAddress.city].filter(Boolean).join(', ')
         : (typeof d.deliveryAddress === 'string' ? d.deliveryAddress : 'Address not available'),
-      deliveryFee:  Number(d.order?.deliveryFee || 0), // pounds
+      deliveryFee:  Number(d.order?.deliveryFee || 0),
     }));
 
     res.json(enriched);
   }),
 );
 
-// GET /api/delivery/jobs — alias for driver-orders (kept for backward compatibility)
+// GET /api/delivery/jobs — backward compat
 deliveryRouter.get('/jobs',
   authorize('driver'),
   asyncHandler(async (req, res) => {
@@ -76,13 +74,12 @@ deliveryRouter.get('/jobs',
   }),
 );
 
-// GET /api/delivery/available — driver sees unassigned jobs they can accept
+// GET /api/delivery/available — driver sees unassigned jobs
 deliveryRouter.get('/available',
   authorize('driver'),
   asyncHandler(async (req, res) => {
     const { prisma } = await import('../server');
 
-    // Available means delivery has no driver assigned yet, and the order is ready for pickup
     const available = await prisma.delivery.findMany({
       where: {
         driverId: null,
@@ -99,7 +96,6 @@ deliveryRouter.get('/available',
       take:    20,
     });
 
-    // Shape response to match what frontend expects
     const shaped = available.map((d: any) => ({
       id:           d.id,
       orderId:      d.orderId,
@@ -108,8 +104,8 @@ deliveryRouter.get('/available',
       address:      d.deliveryAddress?.street
         ? [d.deliveryAddress.street, d.deliveryAddress.city].filter(Boolean).join(', ')
         : 'Patient address',
-      deliveryFee:  Number(d.order?.deliveryFee || 2.99), // pounds
-      distance:     '~2', // placeholder until distance calculation is added
+      deliveryFee:  Number(d.order?.deliveryFee || 2.99),
+      distance:     '~2',
       createdAt:    d.createdAt,
     }));
 
@@ -119,7 +115,7 @@ deliveryRouter.get('/available',
 
 // ── DRIVER ACTION ROUTES ─────────────────────────────────────────────────────
 
-// POST /api/delivery/:id/accept — driver accepts an unassigned delivery
+// POST /api/delivery/:id/accept
 deliveryRouter.post('/:id/accept',
   authorize('driver'),
   asyncHandler(async (req, res) => {
@@ -152,8 +148,7 @@ deliveryRouter.post('/:id/accept',
   }),
 );
 
-// POST /api/delivery/:id/update-status — driver updates delivery status (picked_up, delivered)
-// Frontend uses POST + body { status }; backend keeps both POST and PATCH for compatibility
+// Status update handler (POST /:id/update-status and PATCH /:id/status)
 const handleStatusUpdate = asyncHandler(async (req: any, res: any) => {
   const { status } = req.body;
   const allowed: Record<string, string> = {
@@ -181,7 +176,6 @@ const handleStatusUpdate = asyncHandler(async (req: any, res: any) => {
 
   await prisma.delivery.update({ where: { id: delivery.id }, data });
 
-  // Sync order status when delivered
   if (status === 'delivered') {
     await prisma.order.update({
       where: { id: delivery.orderId },
@@ -219,36 +213,21 @@ const handleStatusUpdate = asyncHandler(async (req: any, res: any) => {
 deliveryRouter.post('/:id/update-status', authorize('driver'), handleStatusUpdate);
 deliveryRouter.patch('/:id/status',       authorize('driver'), handleStatusUpdate);
 
-// PATCH /api/delivery/driver/online — toggle availability
-deliveryRouter.patch('/driver/online',
-  authorize('driver'),
-  asyncHandler(async (req, res) => {
-    const { prisma } = await import('../server');
-    const driver = await prisma.driver.update({
-      where: { userId: req.user!.sub },
-      data:  { isOnline: req.body.isOnline },
-    });
-    res.json({ isOnline: driver.isOnline });
-  }),
-);
+// PATCH/POST /api/delivery/driver/online — toggle availability
+const handleOnlineToggle = asyncHandler(async (req: any, res: any) => {
+  const { prisma } = await import('../server');
+  const driver = await prisma.driver.update({
+    where: { userId: req.user!.sub },
+    data:  { isOnline: req.body.isOnline },
+  });
+  res.json({ isOnline: driver.isOnline });
+});
 
-// POST /api/delivery/driver/online — also accept POST for frontend compat
-deliveryRouter.post('/driver/online',
-  authorize('driver'),
-  asyncHandler(async (req, res) => {
-    const { prisma } = await import('../server');
-    const driver = await prisma.driver.update({
-      where: { userId: req.user!.sub },
-      data:  { isOnline: req.body.isOnline },
-    });
-    res.json({ isOnline: driver.isOnline });
-  }),
-);
+deliveryRouter.patch('/driver/online', authorize('driver'), handleOnlineToggle);
+deliveryRouter.post('/driver/online',  authorize('driver'), handleOnlineToggle);
 
 // ── DRIVER WALLET ──────────────────────────────────────────────────────────
 
-// GET /api/delivery/wallet — driver's earnings + transaction history
-// Computed from delivered deliveries × delivery fee (driver keeps the delivery fee)
 deliveryRouter.get('/wallet',
   authorize('driver'),
   asyncHandler(async (req, res) => {
@@ -262,7 +241,6 @@ deliveryRouter.get('/wallet',
       orderBy: { deliveredAt: 'desc' },
     });
 
-    // Driver earns the delivery fee from each completed delivery (in pounds)
     const totalEarned = deliveredDeliveries.reduce((sum, d) => sum + Number(d.order?.deliveryFee || 0), 0);
 
     const oneWeekAgo  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -284,7 +262,7 @@ deliveryRouter.get('/wallet',
     }));
 
     res.json({
-      balance:          totalEarned, // pounds
+      balance:          totalEarned,
       totalEarned,
       thisWeek,
       thisMonth,
@@ -294,7 +272,6 @@ deliveryRouter.get('/wallet',
   }),
 );
 
-// POST /api/delivery/withdraw — submit withdrawal request
 deliveryRouter.post('/withdraw',
   authorize('driver'),
   asyncHandler(async (req, res) => {
@@ -310,7 +287,7 @@ deliveryRouter.post('/withdraw',
         userId: req.user!.sub,
         type:   'withdrawal_requested',
         title:  'Withdrawal Request Submitted',
-        body:   `Your withdrawal request for £${(amount / 100).toFixed(2)} has been submitted. Admin will process within 2-3 business days.`,
+        body:   `Your withdrawal request for £${amount.toFixed(2)} has been submitted. Admin will process within 2-3 business days.`,
         data:   {
           amount,
           bankDetails: req.body.bankDetails,
@@ -332,8 +309,36 @@ deliveryRouter.post('/withdraw',
   }),
 );
 
-// POST /api/delivery/charges — driver saves their delivery rate settings
-// Stored as a notification (no schema change needed). Frontend just needs the success response.
+// ── DRIVER CHARGES (persists to DB) ────────────────────────────────────────
+
+// GET /api/delivery/charges — load saved charge settings
+deliveryRouter.get('/charges',
+  authorize('driver'),
+  asyncHandler(async (req, res) => {
+    const { prisma } = await import('../server');
+    const driver = await prisma.driver.findUnique({
+      where:  { userId: req.user!.sub },
+      select: {
+        baseCharge:    true,
+        perMileRate:   true,
+        serviceRadius: true,
+        lat:           true,
+        lng:           true,
+      } as any,
+    }) as any;
+    if (!driver) throw new AppError('Driver not found', 404);
+
+    res.json({
+      baseCharge:    Number(driver.baseCharge ?? 3.50),
+      perMileRate:   Number(driver.perMileRate ?? 1.20),
+      serviceRadius: Number(driver.serviceRadius ?? 5.00),
+      lat:           driver.lat ? Number(driver.lat) : null,
+      lng:           driver.lng ? Number(driver.lng) : null,
+    });
+  }),
+);
+
+// POST /api/delivery/charges — save charge settings to DB
 deliveryRouter.post('/charges',
   authorize('driver'),
   asyncHandler(async (req, res) => {
@@ -341,31 +346,61 @@ deliveryRouter.post('/charges',
     const driver = await prisma.driver.findUnique({ where: { userId: req.user!.sub } });
     if (!driver) throw new AppError('Driver not found', 404);
 
-    await prisma.notification.create({
-      data: {
-        userId: req.user!.sub,
-        type:   'charges_updated',
-        title:  'Delivery Charges Updated',
-        body:   `Your delivery charges have been saved.`,
-        data:   {
-          chargeType:           req.body.chargeType,
-          baseCharge:           req.body.baseCharge,
-          perMileRate:          req.body.perMileRate,
-          perKmRate:            req.body.perKmRate,
-          multiPickupEnabled:   req.body.multiPickupEnabled,
-          multiPickupRadius:    req.body.multiPickupRadius,
-          multiPickupDiscount:  req.body.multiPickupDiscount,
-        },
-      },
+    const updates: any = {};
+
+    if (req.body.baseCharge !== undefined) {
+      const v = Number(req.body.baseCharge);
+      if (isNaN(v) || v < 0) throw new AppError('Invalid baseCharge', 400);
+      updates.baseCharge = v;
+    }
+    if (req.body.perMileRate !== undefined) {
+      const v = Number(req.body.perMileRate);
+      if (isNaN(v) || v < 0) throw new AppError('Invalid perMileRate', 400);
+      updates.perMileRate = v;
+    }
+    if (req.body.serviceRadius !== undefined) {
+      const v = Number(req.body.serviceRadius);
+      if (isNaN(v) || v < 0.5) throw new AppError('Service radius must be at least 0.5 miles', 400);
+      updates.serviceRadius = v;
+    }
+    if (req.body.lat !== undefined) {
+      const v = Number(req.body.lat);
+      if (isNaN(v) || v < -90 || v > 90) throw new AppError('Invalid latitude', 400);
+      updates.lat = v;
+    }
+    if (req.body.lng !== undefined) {
+      const v = Number(req.body.lng);
+      if (isNaN(v) || v < -180 || v > 180) throw new AppError('Invalid longitude', 400);
+      updates.lng = v;
+    }
+
+    const updated = await prisma.driver.update({
+      where: { id: driver.id },
+      data:  updates,
+    }) as any;
+
+    await auditLog({
+      userId: req.user!.sub, action: 'updated',
+      resourceType: 'driver',
+      resourceId: driver.id,
+      newValue: updates,
     });
 
-    res.json({ message: 'Charge settings saved', settings: req.body });
+    res.json({
+      message:  'Charge settings saved',
+      settings: {
+        baseCharge:    Number(updated.baseCharge ?? 3.50),
+        perMileRate:   Number(updated.perMileRate ?? 1.20),
+        serviceRadius: Number(updated.serviceRadius ?? 5.00),
+        lat:           updated.lat ? Number(updated.lat) : null,
+        lng:           updated.lng ? Number(updated.lng) : null,
+      },
+    });
   }),
 );
 
 // ── PUBLIC TRACKING ────────────────────────────────────────────────────────
 
-// GET /api/delivery/track/:token — public tracking (no auth)
 deliveryRouter.get('/track/:token', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const delivery = await prisma.delivery.findFirst({
@@ -392,7 +427,6 @@ deliveryRouter.get('/track/:token', asyncHandler(async (req, res) => {
 export const adminRouter = Router();
 adminRouter.use(authenticate, authorize('admin'));
 
-// GET /api/admin/users — list all users with filters
 adminRouter.get('/users', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const { role, status, page = '1', limit = '20' } = req.query as Record<string, string>;
@@ -420,10 +454,9 @@ adminRouter.get('/users', asyncHandler(async (req, res) => {
   res.json({ users, total, page: Number(page), limit: Number(limit) });
 }));
 
-// PATCH /api/admin/users/:id/verify — verify doctor or pharmacy
 adminRouter.patch('/users/:id/verify', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
-  const { status } = req.body; // 'verified' | 'rejected' | 'suspended'
+  const { status } = req.body;
 
   const user = await prisma.user.update({
     where: { id: req.params.id },
@@ -443,7 +476,6 @@ adminRouter.patch('/users/:id/verify', asyncHandler(async (req, res) => {
     newValue: { status },
   });
 
-  // Notify the user
   await prisma.notification.create({
     data: {
       userId: user.id,
@@ -458,7 +490,6 @@ adminRouter.patch('/users/:id/verify', asyncHandler(async (req, res) => {
   res.json({ message: `User status updated to ${status}`, user });
 }));
 
-// GET /api/admin/audit-logs
 adminRouter.get('/audit-logs', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const { page = '1', limit = '50', resourceType } = req.query as Record<string, string>;
@@ -477,7 +508,6 @@ adminRouter.get('/audit-logs', asyncHandler(async (req, res) => {
   res.json(logs);
 }));
 
-// GET /api/admin/platform-stats
 adminRouter.get('/platform-stats', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
 
