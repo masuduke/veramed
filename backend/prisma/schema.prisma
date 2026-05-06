@@ -120,6 +120,14 @@ model Driver {
   isVerified    Boolean    @default(false) @map("is_verified")
   deliveryCount Int        @default(0) @map("delivery_count")
   avgRating     Decimal?   @map("avg_rating") @db.Decimal(3, 2)
+
+  // Driver pricing & service area
+  baseCharge      Decimal?  @default(3.50) @db.Decimal(10, 2) @map("base_charge")
+  perMileRate     Decimal?  @default(1.20) @db.Decimal(10, 2) @map("per_mile_rate")
+  serviceRadius   Decimal?  @default(5.00) @db.Decimal(5, 2)  @map("service_radius")
+  lat             Decimal?  @db.Decimal(10, 7)
+  lng             Decimal?  @db.Decimal(10, 7)
+
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
   deliveries    Delivery[]
