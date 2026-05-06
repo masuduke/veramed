@@ -29,7 +29,23 @@ export const prisma = new PrismaClient({
     : ['error'],
 });
 
-export const redis = createClient({ url: process.env.REDIS_URL });
+export const redis = createClient({
+  url: process.env.REDIS_URL,
+  socket: {
+    reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
+  },
+});
+
+// Prevent unhandled Redis errors from crashing the process
+redis.on('error', (err) => {
+  console.error('[Redis] error:', err?.message || err);
+});
+redis.on('reconnecting', () => {
+  console.log('[Redis] reconnecting...');
+});
+redis.on('ready', () => {
+  console.log('[Redis] ready');
+});
 
 // â”€â”€ App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const app = express();
