@@ -37,12 +37,21 @@ const upload = multer({
   },
 });
 
+// Haversine distance in miles
+function haversineMiles(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3959; // Earth radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
 // POST /api/patient/upload-report
 patientRouter.post('/upload-report',
   upload.single('report'),
   asyncHandler(async (req, res) => {
-    // File is optional - patients can submit symptoms only
-
     const { prisma } = await import('../server');
 
     const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });
@@ -64,14 +73,12 @@ patientRouter.post('/upload-report',
       },
     });
 
-    // Calculate patient context
     const dob = (patient as any).dateOfBirth;
     const ageText = dob ? 'Patient age: ' + Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365)) + ' years old.' : '';
     const gender = (patient as any).gender ? 'Gender: ' + (patient as any).gender + '.' : '';
     const knownAllergies = (patient as any).allergies?.length > 0 ? 'Known allergies: ' + (patient as any).allergies.join(', ') + '.' : '';
     const patientContext = [ageText, gender, knownAllergies].filter(Boolean).join(' ');
 
-    // Trigger AI analysis and save results
     analyzeReport(report.description || '', report.symptoms || [], undefined, patientContext).then(async (analysis) => {
       const { prisma: db } = await import('../server');
       try {
@@ -91,9 +98,7 @@ patientRouter.post('/upload-report',
             whenToSeekEmergency: analysis.whenToSeekEmergency,
           },
         });
-        // Find longest idle doctor for primary specialty
         const primarySpecialty = analysis.requiredSpecialties[0] || 'general_medicine';
-        // Find longest idle doctor - check both formats of specialty name
         const specialtyVariants: Record<string, string[]> = {
           general_medicine: ['general_medicine', 'General Practice', 'General Medicine', 'general medicine', 'GP'],
           cardiology: ['cardiology', 'Cardiology'],
@@ -129,7 +134,6 @@ patientRouter.post('/upload-report',
             aiAnalysisId: aiAnalysis.id,
           } as any,
         });
-        // Fallback 1: if no specialty match, assign to any available verified doctor
         let finalDoctor = assignedDoctor;
         if (!finalDoctor) {
           finalDoctor = await db.doctor.findFirst({
@@ -139,11 +143,9 @@ patientRouter.post('/upload-report',
           if (finalDoctor) console.log('No specialty match - assigned to fallback doctor: ' + finalDoctor.id);
         }
 
-        // Fallback 2: if still no doctor, log as unassigned for admin
         if (!finalDoctor) {
           console.log('WARNING: No available doctor for prescription ' + prescription.id + ' - needs admin assignment');
         } else {
-          // Update prescription with assigned doctor
           await db.prescription.update({
             where: { id: prescription.id },
             data: { doctorId: finalDoctor.id } as any,
@@ -202,7 +204,7 @@ patientRouter.get('/reports', asyncHandler(async (req, res) => {
   res.json(reports);
 }));
 
-// GET /api/patient/reports/:id/file — generate signed URL
+// GET /api/patient/reports/:id/file
 patientRouter.get('/reports/:id/file', asyncHandler(async (req, res) => {
   const { prisma } = await import('../server');
   const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });
@@ -213,7 +215,6 @@ patientRouter.get('/reports/:id/file', asyncHandler(async (req, res) => {
   });
   if (!report) throw new AppError('Report not found', 404);
 
-  // Generate 15-minute signed URL
   const command = new GetObjectCommand({
     Bucket: process.env.AWS_S3_BUCKET!,
     Key:    report.fileUrl,
@@ -242,7 +243,6 @@ patientRouter.get('/prescriptions', asyncHandler(async (req, res) => {
       doctor: {
         include: { user: { select: { name: true, avatarUrl: true } } },
       },
-      // IMPORTANT: Only include AI analysis if approved — doctors control what patients see
       aiAnalysis: {
         select: {
           aiSummary: true,
@@ -254,10 +254,8 @@ patientRouter.get('/prescriptions', asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' },
   });
 
-  // Strip AI raw data — patients only see doctor-approved content
   const safeData = prescriptions.map((p) => ({
     ...p,
-    // Only expose AI summary if prescription is approved
     aiAnalysis: p.status === 'approved' ? p.aiAnalysis : null,
   }));
 
@@ -315,13 +313,11 @@ patientRouter.post('/test-requests/:id/upload',
       data: { status: 'uploaded', patientUploadedAt: new Date() },
     });
 
-    // Update prescription and approval status back to pending so same doctor sees it
     const { prisma: db2 } = await import('../server');
     await db2.prescription.update({
       where: { id: testRequest.prescriptionId },
       data: { status: 'pending_review' } as any,
     });
-    // Reset prescription approvals to pending so doctor sees case again
     await (db2 as any).prescriptionApproval.updateMany({
       where: {
         prescriptionId: testRequest.prescriptionId,
@@ -332,7 +328,6 @@ patientRouter.post('/test-requests/:id/upload',
 
     console.log('Test results uploaded for prescription ' + testRequest.prescriptionId + ' - doctor notified');
 
-    // Re-trigger AI analysis with test results
     const dob = (patient as any).dateOfBirth;
     const ageText = dob ? 'Patient age: ' + Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365)) + ' years old.' : '';
     const patientContext = ageText;
@@ -399,13 +394,7 @@ patientRouter.get('/prescriptions/:id/pharmacy-options', asyncHandler(async (req
     const pharmLng = (pharmacy as any).lng;
     let distanceMiles = null;
     if (patientLat && patientLng && pharmLat && pharmLng) {
-      const R = 3959;
-      const dLat = (pharmLat - patientLat) * Math.PI / 180;
-      const dLon = (pharmLng - patientLng) * Math.PI / 180;
-      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(patientLat * Math.PI / 180) * Math.cos(pharmLat * Math.PI / 180) *
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-      distanceMiles = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      distanceMiles = haversineMiles(Number(patientLat), Number(patientLng), Number(pharmLat), Number(pharmLng));
     }
 
     const availableMeds = prescribedMeds.map((med: any) => {
@@ -427,7 +416,6 @@ patientRouter.get('/prescriptions/:id/pharmacy-options', asyncHandler(async (req
     const coveragePercent = prescribedMeds.length > 0 ? Math.round((availableCount / prescribedMeds.length) * 100) : 0;
     const withinRange = distanceMiles ? distanceMiles <= 10 : true;
 
-    // Country filter
     const pharmCountry = (pharmacy.address as any)?.country || null;
     const sameCountry = !patientCountry || !pharmCountry || patientCountry === pharmCountry;
 
@@ -449,7 +437,6 @@ patientRouter.get('/prescriptions/:id/pharmacy-options', asyncHandler(async (req
       return b.coveragePercent - a.coveragePercent;
     });
 
-  // Format response to match frontend expectations
   const foundSomewhere = prescribedMeds.filter((med: any) =>
     options.some((o: any) => o.availableMeds.find((m: any) => m.name === med.name && m.available))
   ).length;
@@ -505,6 +492,85 @@ patientRouter.get('/prescriptions/:id/pharmacy-options', asyncHandler(async (req
       .map((m: any) => ({ name: m.name })),
     splitOption: null,
     prescriptionId: req.params.id,
+  });
+}));
+
+// ── DRIVER SELECTION (NEW) ────────────────────────────────────────────────
+// GET /api/patient/prescriptions/:id/available-drivers
+// Returns top 5 cheapest verified online drivers within their service radius.
+// Price = baseCharge + (perMileRate × distance) + 10% platform commission.
+patientRouter.get('/prescriptions/:id/available-drivers', asyncHandler(async (req, res) => {
+  const { prisma } = await import('../server');
+  const patient = await prisma.patient.findUnique({ where: { userId: req.user!.sub } });
+  if (!patient) throw new AppError('Patient not found', 404);
+
+  // Confirm prescription belongs to this patient
+  const prescription = await prisma.prescription.findFirst({
+    where: { id: req.params.id, patientId: patient.id },
+  });
+  if (!prescription) throw new AppError('Prescription not found', 404);
+
+  const patientLat = (patient as any).lat;
+  const patientLng = (patient as any).lng;
+  if (!patientLat || !patientLng) {
+    throw new AppError('Patient location not set. Please update your address in settings.', 400);
+  }
+
+  // Pull all verified, online drivers
+  const drivers = await prisma.driver.findMany({
+    where: {
+      isVerified: true,
+      isOnline:   true,
+    },
+    include: {
+      user: { select: { name: true, avatarUrl: true } },
+    },
+  }) as any[];
+
+  const COMMISSION_PCT = 0.10; // platform takes 10%
+
+  // Calculate distance and price for each driver
+  const candidates = drivers
+    .map((d: any) => {
+      if (d.lat == null || d.lng == null) return null;
+      const distance = haversineMiles(
+        Number(patientLat),
+        Number(patientLng),
+        Number(d.lat),
+        Number(d.lng),
+      );
+      const radius = Number(d.serviceRadius ?? 5);
+      if (distance > radius) return null;
+
+      const baseCharge   = Number(d.baseCharge   ?? 3.50);
+      const perMileRate  = Number(d.perMileRate  ?? 1.20);
+      const driverPrice  = baseCharge + (perMileRate * distance);
+      const commission   = driverPrice * COMMISSION_PCT;
+      const totalPrice   = driverPrice + commission;
+
+      return {
+        driverId:      d.id,
+        driverName:    d.user?.name || 'Driver',
+        rating:        d.avgRating ? Number(d.avgRating) : null,
+        deliveryCount: d.deliveryCount,
+        vehicleInfo:   d.vehicleInfo,
+        distanceMiles: Math.round(distance * 10) / 10,
+        baseCharge:    Math.round(baseCharge * 100) / 100,
+        perMileRate:   Math.round(perMileRate * 100) / 100,
+        driverPrice:   Math.round(driverPrice * 100) / 100,
+        commission:    Math.round(commission * 100) / 100,
+        totalPrice:    Math.round(totalPrice * 100) / 100,
+      };
+    })
+    .filter((c: any) => c !== null)
+    .sort((a: any, b: any) => a!.totalPrice - b!.totalPrice)
+    .slice(0, 5); // top 5 cheapest
+
+  res.json({
+    prescriptionId: req.params.id,
+    drivers:        candidates,
+    commissionPct:  COMMISSION_PCT * 100,
+    totalAvailable: candidates.length,
   });
 }));
 
